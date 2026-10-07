@@ -1,0 +1,120 @@
+---
+title: "Deploy Allipos to Vercel or any static host"
+sidebarTitle: "Deployment"
+description: "Build the Vite app and deploy the dist/ output to Vercel with zero config — or any static host — while keeping the Service Worker and PWA install working in production."
+---
+
+Allipos is a fully static Vite application — there is no server-side rendering, no API layer, and no database. The production build is a self-contained folder of HTML, CSS, JavaScript, and image assets that can be served from **any static hosting provider**. Vercel is the recommended target because its zero-config Vite detection and automatic HTTPS make PWA deployment straightforward.
+
+---
+
+## Deploy to Vercel
+
+<Steps>
+  <Step title="Build the production bundle">
+    Run the Vite build command to compile and bundle all assets into the `dist/` directory:
+
+    ```bash
+    npm run build
+    ```
+
+    Vite performs tree-shaking, asset fingerprinting, and CSS minification. After the command completes you will find a self-contained static site in `dist/`.
+
+    Optionally, verify the build locally before deploying:
+
+    ```bash
+    npm run preview
+    ```
+
+    This serves `dist/` through Vite's static server so you can confirm the Service Worker registers and the PWA install prompt appears correctly.
+  </Step>
+
+  <Step title="Set up Vercel">
+    Choose one of two methods:
+
+    **Option A — Vercel CLI (recommended for first deploy):**
+
+    ```bash
+    npm install -g vercel
+    vercel login
+    ```
+
+    **Option B — GitHub integration:**
+
+    Push your repository to GitHub, then visit [vercel.com](https://vercel.com) and click **"Add New Project"**. Import the `allipos` repository and Vercel will auto-detect the Vite framework from `vercel.json`.
+  </Step>
+
+  <Step title="Deploy to production">
+    **With the Vercel CLI**, deploy directly to your production URL:
+
+    ```bash
+    vercel --prod
+    ```
+
+    **With GitHub integration**, simply push to the `main` branch — Vercel triggers an automatic production deployment on every push:
+
+    ```bash
+    git push origin main
+    ```
+
+    Vercel will execute `npm run build`, serve the `dist/` directory, and provision a TLS certificate automatically.
+  </Step>
+
+  <Step title="Verify the PWA in production">
+    After deployment, open your Vercel URL in Chrome on Android or Safari on iOS and confirm:
+
+    - The app loads without errors
+    - The address bar shows a secure **`https://`** connection
+    - Chrome DevTools → **Application → Service Workers** shows the worker as *activated and running*
+    - The install prompt appears (Android) or the Share → "Add to Home Screen" flow succeeds (iOS)
+    - Enabling airplane mode and reloading confirms full offline functionality
+  </Step>
+</Steps>
+
+---
+
+## Vercel configuration
+
+Allipos includes a `vercel.json` at the repo root that tells Vercel exactly how to build and serve the app:
+
+```json vercel.json
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+
+| Field | Value | Purpose |
+|---|---|---|
+| `buildCommand` | `"npm run build"` | The command Vercel runs to produce the deployable output |
+| `outputDirectory` | `"dist"` | The folder Vercel serves as the document root |
+| `framework` | `"vite"` | Signals Vite-aware optimisations and correct asset handling |
+| `rewrites` | `/(.*) → /index.html` | Ensures deep-links and browser refreshes are handled by the SPA router instead of returning 404s |
+
+---
+
+## Alternative static hosts
+
+Any host that can serve a folder of static files will work. Point it at the `dist/` output produced by `npm run build`:
+
+| Host | How to deploy | Notes |
+|---|---|---|
+| **Netlify** | Drag-and-drop `dist/` into the Netlify dashboard, or connect your GitHub repo and set build command `npm run build` / publish directory `dist` | Automatic HTTPS; add a `_redirects` file (`/* /index.html 200`) if Netlify's SPA redirect is not auto-detected |
+| **GitHub Pages** | Push `dist/` contents to a `gh-pages` branch using the [gh-pages](https://www.npmjs.com/package/gh-pages) npm package | Set `base` in `vite.config.js` to your repo name if deploying to a sub-path (e.g. `/allipos/`) |
+| **Cloudflare Pages** | Connect your GitHub repo; set build command `npm run build` and output directory `dist` | Edge-cached globally; automatic HTTPS on all custom domains |
+
+---
+
+## Environment considerations
+
+Allipos requires **no environment variables** at build time or runtime. All application state — the product catalogue, sales history, and running totals — lives exclusively in the browser's **LocalStorage**. There are no API keys, no secrets, and no `.env` files to configure.
+
+This also means each device maintains its own independent data store. A phone used at booth A and a phone used at booth B will each have their own sales history — by design, for school fair scenarios where each stall operates independently.
+
+<Warning>
+  The Service Worker will **only register and activate on HTTPS origins**. If you deploy to a custom domain, ensure your hosting provider provisions a valid TLS certificate before expecting the PWA install prompt to appear or offline mode to function. Vercel, Netlify, and Cloudflare Pages all provide automatic TLS. Local development on `http://localhost:3000` is explicitly exempt from this restriction by browser security policy and the Service Worker will register normally there.
+</Warning>

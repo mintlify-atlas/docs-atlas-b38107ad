@@ -1,0 +1,220 @@
+---
+title: "Allipos design system: 3D tactile Duolingo-style UI"
+sidebarTitle: "Design System"
+description: "Reference for Allipos CSS design tokens, color palette, 3D button system, typography scale, layout patterns, and key component classes."
+---
+
+Allipos uses a custom CSS design system inspired by Duolingo's 3D tactile UI. All design tokens are CSS custom properties (variables) defined in `src/css/style.css` and available globally throughout the app. The system prioritizes motor accessibility, reduced cognitive load, and instant visual feedback — all essential for children operating a point-of-sale in a busy school fair environment.
+
+---
+
+## Color Palette
+
+CSS custom properties are declared on `:root` and used consistently across all components. Each interactive color has a paired shadow color that creates the 3D raised-button illusion.
+
+### Primary Action Colors
+
+| Token | Value | Shadow Token | Shadow Value | Usage |
+|---|---|---|---|---|
+| `--color-green` | `#58cc02` | `--color-green-shadow` | `#46a302` | Confirmation, success, progress, prices |
+| `--color-blue` | `#1cb0f6` | `--color-blue-shadow` | `#1899d6` | Navigation, edit actions, active tab state |
+| `--color-red` | `#ff4b4b` | `--color-red-shadow` | `#ea2b2b` | Delete, error, destructive actions |
+| `--color-yellow` | `#ffc800` | `--color-yellow-shadow` | `#e5b200` | Back/undo actions (dark text: `#4b3800`) |
+
+### Extended Palette
+
+| Token | Value | Shadow Token | Shadow Value | Usage |
+|---|---|---|---|---|
+| `--color-pink` | `#ff629e` | `--color-pink-shadow` | `#e04b84` | $50 bill denomination button |
+| `--color-purple` | `#ce82ff` | `--color-purple-shadow` | `#a560e8` | $500 bill denomination button |
+| `--color-orange` | `#ff9600` | `--color-orange-shadow` | `#ce7900` | $5 coin button, exact-payment button |
+
+### Neutral / Background Colors
+
+| Token | Value | Usage |
+|---|---|---|
+| `--color-gray-light` | `#e5e5e5` | Borders, disabled button backgrounds, step bar track |
+| `--color-gray-dark` | `#afafaf` | Default nav button shadow, disabled button shadow |
+| `--color-bg` | `#f7f9fa` | App background, inactive nav button fill |
+| `--color-card-bg` | `#ffffff` | Card surfaces, product cards, admin items |
+| `--color-text` | `#3c3c3c` | Primary body text |
+| `--color-text-muted` | `#777777` | Secondary labels, timestamps, step indicator text |
+
+### Border Radius Tokens
+
+| Token | Value | Usage |
+|---|---|---|
+| `--radius-lg` | `20px` | Product cards, result card, summary card |
+| `--radius-md` | `16px` | 3D buttons, bill buttons, total banner, alert box |
+| `--radius-sm` | `12px` | Nav buttons, form inputs, admin item thumbnails |
+
+---
+
+## 3D Button System
+
+The `.btn-3d` class is the foundational interactive primitive. It simulates a physical raised button using `box-shadow` and collapses on `:active` with a `translateY` animation that makes it feel "pressed" — a technique lifted directly from Duolingo's mobile UI.
+
+```css
+.btn-3d {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  font-family: var(--font-family);
+  font-weight: 800;
+  font-size: 1.2rem;
+  border-radius: var(--radius-md); /* 16px */
+  padding: 14px 20px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Color variant — raised state */
+.btn-green {
+  background-color: var(--color-green);
+  color: #ffffff;
+  box-shadow: 0 5px 0 var(--color-green-shadow);
+}
+
+/* Press animation — reduces shadow by 4px, shifts element down 4px */
+.btn-green:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--color-green-shadow);
+}
+```
+
+### Color Variants
+
+All four color variants follow the same shadow + `:active` pattern:
+
+| Class | Background | Text | Shadow color |
+|---|---|---|---|
+| `.btn-green` | `#58cc02` | `#ffffff` | `#46a302` |
+| `.btn-blue` | `#1cb0f6` | `#ffffff` | `#1899d6` |
+| `.btn-red` | `#ff4b4b` | `#ffffff` | `#ea2b2b` |
+| `.btn-yellow` | `#ffc800` | `#4b3800` | `#e5b200` |
+
+### Disabled State
+
+```css
+.btn-disabled,
+.btn-3d:disabled {
+  background-color: var(--color-gray-light) !important;
+  color: var(--color-text-muted) !important;
+  box-shadow: 0 5px 0 var(--color-gray-dark) !important;
+  cursor: not-allowed;
+  transform: none !important;
+}
+```
+
+Disabled buttons retain the 3D shadow but cannot be pressed — the `transform: none !important` prevents the animation from firing even on accidental taps.
+
+---
+
+## Typography
+
+Allipos uses **Nunito** exclusively, loaded from Google Fonts:
+
+```css
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap');
+
+:root {
+  --font-family: 'Nunito', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+```
+
+Font weights 600–900 are loaded. The app favors heavy weights (700–900) throughout to maximize legibility on small screens under varied lighting conditions at outdoor school fairs.
+
+### Type Scale
+
+| Element | Size | Weight | Color | Notes |
+|---|---|---|---|---|
+| Body / default | `1rem` | `700` | `--color-text` | Base weight throughout |
+| Product name (`.product-name`) | `1.1rem` | `800` | `--color-text` | Card label |
+| Product price (`.product-price`) | `1.3rem` | `900` | `--color-green-shadow` | Highlighted in green |
+| Step title (`.step-title`) | `1.2rem` | `900` | `--color-text` | POS step heading |
+| Total amount (`.total-amount`) | `2.4rem` | `900` | `--color-green-shadow` | TOTAL A COBRAR display |
+| Change amount (`.change-amount`) | `3.5rem` | `900` | `--color-green-shadow` | Step 4 result — largest text in the app |
+| Quantity display (`.qty-display`) | `3rem` | `900` | `--color-text` | Step 2 quantity number |
+| Summary card amount | `3.2rem` | `900` | `#ffffff` | Daily total on green card |
+| Step indicator (`.step-indicator-text`) | `0.95rem` | `800` | `--color-text-muted` | "Paso 2 de 4" |
+| History timestamp (`.history-time`) | `0.85rem` | `700` | `--color-text-muted` | Sale time in summary |
+
+`user-select: none` and `-webkit-user-select: none` are applied globally to prevent accidental text selection during rapid tapping.
+
+---
+
+## Layout Patterns
+
+Allipos is designed **mobile-first** for portrait smartphones. The entire app is constrained to a maximum width of `600px`, centered in the viewport with a subtle drop shadow — it looks native on phones and like a centered card on tablets or desktops.
+
+```css
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 600px;
+  margin: 0 auto;
+  background: #ffffff;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+}
+```
+
+### Key Layout Classes
+
+**`.product-grid`** — 2-column CSS grid used in the POS Step 1 product selection screen and the Admin products list:
+
+```css
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+```
+
+**`.bills-grid`** — 2-column CSS grid for the denomination tap buttons in Step 3. The "¡Pago Exacto!" button spans both columns via `.bill-exact { grid-column: span 2; }`.
+
+**`.bottom-nav`** — Padding container at the bottom of each POS step. Combined with `main { padding-bottom: 30px }` it ensures the primary action button is always reachable by a thumb without scrolling.
+
+**`.step-bar-container`** — Flex row at the top of the POS view containing the step progress bar (`.step-bar` + `.step-progress`) and a text indicator. The green fill width animates with `transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1)` as steps advance.
+
+**`header`** — Sticky top bar (`position: sticky; top: 0; z-index: 100`) holding the logo and navigation tab buttons. Stays visible as content scrolls.
+
+---
+
+## Key Component Classes
+
+| Class | Element | Purpose |
+|---|---|---|
+| `.btn-3d` | `button` | Base 3D tactile button — apply with a color variant |
+| `.btn-green` / `.btn-blue` / `.btn-red` / `.btn-yellow` | `button` | Color + shadow variants for `.btn-3d` |
+| `.product-card` | `div` | 2-column grid card with product photo, name, and price |
+| `.product-card.selected` | `div` | Selected state: green border (`--color-green`), light green background (`#f0fdf0`) |
+| `.total-banner` | `div` | Dashed-border banner showing TOTAL A COBRAR in Step 2 |
+| `.bill-btn` | `button` | Denomination tap button in Step 3 — contains a real coin/bill photo (`.bill-img`) |
+| `.bill-exact` | `button` | "¡Pago Exacto!" button spanning both grid columns, orange |
+| `.alert-box` | `div` | Red warning card for insufficient payment — plays a CSS `shake` keyframe animation |
+| `.result-card` | `div` | Step 4 change summary card with green border and shadow |
+| `.change-amount` | `div` | 3.5rem green bold change figure inside `.result-card` |
+| `.step-bar` / `.step-progress` | `div` | Progress bar track / animated green fill |
+| `.step-bar-container` | `div` | Flex row wrapping step bar and step indicator text |
+| `.summary-card` | `div` | Green gradient card showing total daily sales amount |
+| `.history-item` | `div` | Individual sale row in the Summary view history list |
+| `.nav-btn` | `button` | Header navigation tab; `.nav-btn.active` gets blue background |
+| `.form-input` | `input` | Admin form text/number input — blue border on `:focus` |
+| `.image-preview-box` | `div` | Dashed upload zone for product photos in the admin form |
+| `.admin-item` | `div` | Product row in the admin list with thumbnail, name, price, and action buttons |
+
+<Tip>
+  The design prioritizes motor accessibility with minimum **44 px touch targets** on all interactive elements. Quantity `+`/`-` buttons are circular at `65 × 65 px`, denomination buttons fill at least half the screen width, and the primary action button spans the full content width — all designed so children can operate the POS confidently with one hand on a phone.
+</Tip>
+
+---
+
+**Related pages:** [Introduction](/introduction) · [PWA Install](/pwa-install) · [POS Flow Guide](/guide/pos-flow) · [Voice & Audio Features](/features/voice-audio) · [Design System Reference](/reference/design-system)

@@ -1,0 +1,139 @@
+---
+title: "Install and run Allipos locally with Vite"
+sidebarTitle: "Installation"
+description: "Clone the Allipos repo, install dependencies with npm, and spin up the Vite dev server in under two minutes for local development and testing."
+---
+
+A local installation of Allipos gives you a fully functional point-of-sale dev environment with hot-module replacement, LAN access for touch testing on real devices, and the same offline-ready Service Worker behaviour you'll get in production. Everything runs in the browser — no database, no backend, no environment variables required.
+
+## Prerequisites
+
+Before you begin, make sure you have **Node.js 18 or later** and **npm** (bundled with Node) on your machine. Yarn and pnpm are also supported as drop-in replacements.
+
+<CodeGroup>
+```bash Check Node.js version
+node --version
+# Expected: v18.x.x or higher
+```
+
+```bash Check npm version
+npm --version
+# Expected: 9.x.x or higher
+```
+</CodeGroup>
+
+## Installation steps
+
+<Steps>
+  <Step title="Clone the repository">
+    Pull the source code from GitHub and enter the project directory:
+
+    ```bash
+    git clone https://github.com/soymatudev/allipos.git && cd allipos
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    Allipos has a single dev dependency — Vite 5. Install it with your preferred package manager:
+
+    <CodeGroup>
+      ```bash npm
+      npm install
+      ```
+
+      ```bash yarn
+      yarn install
+      ```
+
+      ```bash pnpm
+      pnpm install
+      ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Start the development server">
+    Launch the Vite dev server with hot-module replacement:
+
+    ```bash
+    npm run dev
+    ```
+
+    Vite starts on **port 3000** by default (configured in `vite.config.js` with `host: true` so the LAN IP is also exposed):
+
+    ```
+    VITE v5.x  ready in Xms
+
+      ➜  Local:   http://localhost:3000/
+      ➜  Network: http://192.168.x.x:3000/
+    ```
+
+    Open the **Local** URL in your desktop browser, or scan the **Network** URL from a phone on the same Wi-Fi network.
+  </Step>
+
+  <Step title="Build for production">
+    Compile and bundle all assets into the `dist/` output directory:
+
+    ```bash
+    npm run build
+    ```
+
+    Vite performs tree-shaking, asset hashing, and CSS minification. The output in `dist/` is a self-contained static site ready to deploy to any host.
+  </Step>
+
+  <Step title="Preview the production build locally">
+    Serve the `dist/` folder through Vite's built-in static server to verify the production output before deploying:
+
+    ```bash
+    npm run preview
+    ```
+
+    This is the recommended step for confirming the Service Worker registers and caches assets correctly before pushing to Vercel.
+  </Step>
+</Steps>
+
+## Available npm scripts
+
+All scripts are defined in `package.json` and delegate to Vite:
+
+| Script | Command | Description |
+|---|---|---|
+| `dev` | `vite` | Start the dev server on port 3000 with HMR and LAN exposure |
+| `build` | `vite build` | Bundle for production into `dist/` |
+| `preview` | `vite preview` | Serve the `dist/` build locally for pre-deploy verification |
+
+<Tip>
+  The dev server is configured with `host: true`, which means Vite also binds to your machine's LAN IP. Open that IP address in Chrome on a connected Android phone to test all touch interactions, the Web Audio API sounds, and the Web Speech API voice assistant on a real device before deploying.
+</Tip>
+
+## Project structure
+
+The repository follows a clean, flat layout that matches Vite's conventions:
+
+```text
+allipos/
+├── public/
+│   ├── manifest.json            # PWA Web App Manifest for mobile install
+│   ├── sw.js                    # Service Worker with offline cache strategy
+│   ├── icon-192.png             # App icon (192 px)
+│   └── icon-512.png             # App icon high-res (512 px)
+├── src/
+│   ├── assets/
+│   │   ├── diner/               # Photos of banknotes and coins ($1–$100 MXN)
+│   │   └── inventory/           # Product catalogue photos
+│   ├── css/
+│   │   └── style.css            # Duolingo 3D design system and responsive rules
+│   └── js/
+│       ├── app.js               # Entry point and tab router
+│       ├── audio.js             # Web Audio API engine and Web Speech API
+│       ├── store.js             # Data model, LocalStorage persistence, versioning
+│       └── ui/
+│           ├── posView.js       # 4-step guided checkout interface
+│           ├── adminView.js     # Product catalogue management
+│           └── summaryView.js   # End-of-day sales summary and history
+├── index.html                   # Root HTML5 document
+├── package.json                 # Vite dependency and npm scripts
+├── vite.config.js               # Bundler configuration
+├── vercel.json                  # Vercel deployment configuration
+├── DOCUMENTACION_CAMBIOS.md     # Detailed technical and UX changelog
+└── README.md                    # Project overview
+```

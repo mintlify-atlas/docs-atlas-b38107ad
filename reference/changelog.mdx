@@ -1,0 +1,151 @@
+---
+title: "Allipos changelog: features and improvements"
+sidebarTitle: "Changelog"
+description: "Full development history of Allipos v1.0 — infrastructure, Duolingo 3D design system, POS checkout flow, product admin, audio, and CSS polish."
+---
+
+This changelog summarizes the features, UX improvements, and technical changes made throughout the development of Allipos, drawn directly from [`DOCUMENTACION_CAMBIOS.md`](https://github.com/soymatudev/allipos/blob/main/DOCUMENTACION_CAMBIOS.md) in the repository. Changes are organized thematically by system area.
+
+---
+
+## Infrastructure & Architecture
+
+The foundation of Allipos was built to be lean, offline-capable, and deployable with zero configuration overhead.
+
+- **Technology stack:** [Vanilla JavaScript (ES Modules)](/introduction), HTML5, and CSS3 — no frontend framework, no runtime dependencies beyond [Vite 5](https://vitejs.dev/) as the build tool.
+- **PWA setup:** Added `public/manifest.json` configured for `standalone` display mode, enabling users to install **Allipos** directly on their home screen. See [Installing Allipos as a PWA](/pwa-install) for the full install guide.
+- **Offline via Service Worker:** Implemented `public/sw.js` with a stale-while-revalidate caching strategy and cache name `allipos-v1`, enabling 100% offline operation with no internet or Wi-Fi required. See [Offline support](/features/offline) for details.
+- **Vercel deployment:** Configured `vercel.json` with a build command, `dist/` output directory, Vite framework hint, and an SPA rewrite rule (`/(.*) → /index.html`) so the app's tab router works correctly after hard reloads. See the [Deployment guide](/deployment).
+- **Credits footer:** A subtle signature appears at the bottom of every screen — `Allipos By Juan Maturana @soymatudev`.
+
+---
+
+## Design System (Duolingo 3D UI)
+
+The entire visual language is inspired by Duolingo's tactile, game-like interface, adapted for children operating a real point-of-sale at a school fair.
+
+- **3D tactile buttons (`src/css/style.css`):**
+  - Thick bottom borders using `box-shadow: 0 5px 0 var(...)` give buttons a physical raised appearance.
+  - Pill/card border radius (`border-radius: 16px`) for friendly, approachable corners.
+  - Press animations via `transform: translateY(4px)` on the `:active` state — buttons visually "click down" when tapped, providing satisfying tactile feedback.
+- **High-contrast color palette:**
+
+  | Color | Hex | Role |
+  |---|---|---|
+  | 🟢 Duolingo Green | `#58cc02` / shadow `#46a302` | Confirmation, success, primary action |
+  | 🔵 Blue | `#1cb0f6` / shadow `#1899d6` | Navigation, edit actions |
+  | 🔴 Red | `#ff4b4b` / shadow `#ea2b2b` | Delete, destructive actions, disabled state |
+  | 🟡 Yellow | `#ffc800` / shadow `#e5b200` | Go back, reload catalog |
+  | 🟠 Orange | `#ff9600` | Bill denomination buttons |
+  | 🟣 Purple | `#ce82ff` | Coin denomination buttons |
+
+- **Mobile-first layout:** The header and tab bar (`🛒 Cobrar`, `📦 Productos`, `📊 Corte`) are sized precisely so all three primary tabs fit without overflow or scrolling on any smartphone in portrait orientation.
+
+See [Design system reference](/reference/design-system) for the complete CSS variable and component inventory.
+
+---
+
+## POS Checkout Flow
+
+The core POS experience is a guided 4-step flow designed to eliminate mental arithmetic for child cashiers. See the [full POS flow guide](/guide/pos-flow).
+
+### 4-step guided flow
+
+1. **Step 1 — Product selection:** Large product cards with a real inventory photo, name, and price in bold typography.
+2. **Step 2 — Quantity:** Giant `+` and `−` controls with a live-updating total.
+3. **Step 3 — Receive payment:** Denomination buttons, numeric keyboard, and live underpayment validation.
+4. **Step 4 — Change & success:** Celebration screen with the change amount in large green text, a visual denomination breakdown, and automatic voice readout.
+
+### $1 and $2 coin buttons
+
+Added interactive buttons with real photos (`diner1.png`, `diner2.png`) for the **$1 peso** and **$2 peso** denominations, completing the full range of Mexican currency in circulation: **$1, $2, $5, $10, $20, $50, $100**. Both buttons received distinct 3D tactile styles (`.bill-1` and `.bill-2`) with the purple coin color palette.
+
+### Immediate voice feedback on denomination tap
+
+Every denomination button in Step 3 now triggers an **instant voice announcement** via the Web Speech API the moment it is tapped — *"1 peso"*, *"2 pesos"*, *"5 pesos"*, *"20 pesos"*, etc. This provides simultaneous audio reinforcement so children learn to associate the physical coin or bill image with its verbal value. Voice also confirms *¡Pago Exacto!* and *Borrar* button presses. See [Voice & audio reference](/features/voice-audio).
+
+### Multiple change combinations
+
+Implemented an intelligent change-combination engine that calculates multiple **valid denomination breakdowns** for any given change amount. A cycling button — **🔄 Ver otra forma de dar cambio** — with a counter (e.g., `1/3`, `2/3`) lets the cashier switch to an alternative combination if a specific coin is unavailable. For example, $15 in change can be shown as:
+
+- `1× $10 + 1× $5`
+- `3× $5`
+- `1× $10 + 2× $2 + 1× $1`
+
+Each switch updates the visual breakdown cards instantly and triggers a new voice readout of the active combination.
+
+### Visual change breakdown
+
+Step 4 renders **mini-cards** — one per denomination — each showing the real photo of the coin or bill and the exact count to hand back (e.g., `1× Billete de $20`, `2× Moneda de $2`, `1× Moneda de $1`). See [Change calculator](/features/change-calculator).
+
+### Numeric keyboard input
+
+Implemented a native `<input type="number" inputmode="decimal">` field in Step 3 that immediately raises the device's numeric keyboard on mobile, allowing the cashier to type an arbitrary payment amount directly.
+
+### Accumulative bill/coin tap
+
+Denomination buttons accumulate cumulatively with each tap — tapping **$20** three times adds $60 to the received amount. Combined with the **✨ ¡PAGO EXACTO!** button (sets received = total) and the **🧹 Borrar** button (clears to zero), this covers all real-world payment scenarios.
+
+### Button positioning above alerts
+
+The primary action buttons — **⬅️ Volver** and **Calcular Cambio ➡️** — were repositioned **above** the validation alert area. The underpayment warning (*"Recibido < Total. Faltan $X.XX"*) now appears below the buttons and never pushes them off screen, ensuring they are always 100% visible without scrolling on any device.
+
+---
+
+## Product Administration
+
+All product management happens in the **📦 Productos** tab without requiring any developer involvement. See the [Products guide](/guide/products).
+
+- **Real inventory photos (`src/assets/inventory/`):** The default catalog is pre-configured with real product photos (`prod_001.jpeg` to `prod_011.jpeg`) covering typical school fair items: Gelatinas, Gelatina de Refresco, Aguas Frescas, Gomitas Enchiladas, Garapiñados, Chocoretas, Manzanas, Cakes Pops, Carlota de Limón, and Flan.
+- **Catalog versioning (`CURRENT_CATALOG_VERSION`):** When `INITIAL_PRODUCTS` changes in the code, the app auto-detects the new version string on startup and refreshes `LocalStorage` silently — no manual data-clearing by the user needed. See [Configuration reference → Catalog version](/reference/configuration#catalog-version-storejs).
+- **Edit functionality (`Store.updateProduct`):** Each product card has an **✏️ Editar** button that pre-populates the form with the existing name, price, and photo for in-place editing.
+- **Base64 photo upload:** Product photos are converted to Base64 via `FileReader` and stored directly in `LocalStorage`, so images survive offline use with no external storage dependency.
+- **Delete with confirmation:** A delete button on each product shows a confirmation alert before removing the item, preventing accidental data loss.
+- **Reset catalog button:** The **🔄 Recargar Catálogo Base** yellow button in the Products tab calls `Store.resetToDefaultProducts()` for an immediate manual sync back to the built-in default catalog.
+
+---
+
+## Sales Summary
+
+The **📊 Corte** tab provides a complete daily register summary. See the [Sales summary guide](/guide/sales-summary).
+
+- **Running total:** An accumulative "Total Vendido Hoy ($)" card updates after every completed sale, showing the day's gross revenue at a glance.
+- **Chronological history:** A full transaction log with time, product name, quantity, money received, and change returned for each sale — newest entries appear at the top.
+- **Register reset:** A clearly labeled reset button wipes the day's total and history, ready for the next school fair session.
+
+---
+
+## Audio System
+
+Allipos has three distinct sound effects, all synthesized at runtime using the **Web Audio API** — no `.mp3` or `.ogg` files to load or cache. See [Audio API reference](/reference/audio-api).
+
+| Sound | Trigger | Description |
+|---|---|---|
+| **Tactile pop** | Any button press | Short, crisp tap feedback mimicking Duolingo's UI sounds |
+| **Warning tone** | Underpayment validation (Step 3) | Soft two-note alert when received amount is less than the total |
+| **Victory fanfare** | Sale completed (Step 4) | An ascending C major chord — C5 → E5 → G5 → C6 — celebrating each successful transaction |
+
+Voice narration is handled separately by the **Web Speech API** (`SpeechSynthesis`, language `es-MX`) and requires no additional assets or configuration.
+
+---
+
+## CSS Fine-tuning
+
+A series of precision adjustments were made after the main feature set was complete to ensure a polished, production-quality feel on real devices.
+
+- Removed default margins and borders on `.total-banner` (`margin: 0px`) to eliminate unexpected spacing gaps.
+- Cleaned up and reformatted the `:active` state rules and `@keyframes shake` animation declarations for cross-browser consistency.
+- Refined paddings and margins on `.quantity-container`, `.bottom-nav`, and `.alert-box` containers to achieve correct spatial rhythm across different phone sizes.
+- Optimized button sizing in Step 4 so the sale-completion actions can be reached quickly with one thumb, reducing the time per transaction.
+
+---
+
+## Current Status
+
+**Version 1.0 is fully functional and production-ready.** All core flows — product selection, guided checkout, change calculation, voice assistance, product administration, and daily sales summary — have been implemented, tested on real smartphones, and are stable.
+
+Deployed and live on **Vercel** via continuous deployment from the `main` branch. See the [Deployment guide](/deployment) for instructions on running your own instance.
+
+<Tip>
+  To contribute improvements, suggest new features, or report a bug, open an issue or pull request on the [GitHub repository](https://github.com/soymatudev/allipos).
+</Tip>

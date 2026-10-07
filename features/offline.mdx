@@ -1,0 +1,177 @@
+---
+title: "Offline and PWA capabilities of Allipos"
+sidebarTitle: "Offline & PWA"
+description: "How Allipos uses a Service Worker cache-first strategy and a Web App Manifest to run completely without internet after the first load."
+---
+
+Allipos is built to work in school patios and fair venues where Wi-Fi and mobile data are unreliable. Once installed, it runs entirely from the browser cache with no network dependency — every screen, every coin photo, and every voice effect works in full airplane mode.
+
+## Service Worker
+
+The Service Worker lives at `public/sw.js` and is registered from `src/js/app.js` on `DOMContentLoaded`.
+
+### Registration
+
+```js
+// src/js/app.js
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then((reg) => {
+      console.log('Service Worker registrado con éxito:', reg.scope);
+    }).catch((err) => {
+      console.warn('Error al registrar Service Worker:', err);
+    });
+  });
+}
+```
+
+The registration is guarded by a feature-detect (`'serviceWorker' in navigator`) so the app degrades gracefully on browsers that do not support the API.
+
+### Cache name
+
+```
+allipos-v1
+```
+
+All cached entries live under this key. Deploying a new version means bumping this string — the `activate` handler automatically deletes any cache whose name does not match `allipos-v1`.
+
+### What is cached on install
+
+During the `install` event, the Service Worker pre-caches the following assets:
+
+```js
+const ASSETS_TO_CACHE = [
+  '/',
+  '/index.html',
+  '/src/css/style.css',
+  '/src/js/app.js',
+  '/src/js/store.js',
+  '/src/js/audio.js',
+  '/src/js/ui/posView.js',
+  '/src/js/ui/adminView.js',
+  '/src/js/ui/summaryView.js',
+  '/manifest.json'
+];
+```
+
+Coin and bill photos (`/src/assets/diner/`) and product inventory photos (`/src/assets/inventory/`) are added to the cache on demand the first time they are requested (see the fetch strategy below).
+
+### Cache strategy: Stale-While-Revalidate
+
+The `fetch` handler uses a **stale-while-revalidate** pattern:
+
+1. **Serve from cache immediately** — if a matching entry exists, it is returned right away so the UI loads instantly, even offline.
+2. **Fetch update in the background** — a network request is fired in parallel. If it succeeds (HTTP 200), the cache entry is refreshed silently.
+3. **Offline fallback** — if the resource is not in cache *and* the network is unavailable, the fetch falls back to the cached root (`'/'`), ensuring the shell always loads.
+
+```js
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        // Return cached and fetch update in background
+        fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, networkResponse);
+            });
+          }
+        }).catch(() => {/* Offline fallback */});
+        return cachedResponse;
+      }
+      return fetch(event.request).catch(() => {
+        return caches.match('/');
+      });
+    })
+  );
+});
+```
+
+Only `GET` requests are intercepted; `POST` and other mutating methods pass through unchanged.
+
+---
+
+## Web App Manifest
+
+The manifest at `public/manifest.json` tells the browser how to present Allipos when installed as a PWA on the home screen.
+
+```json
+{
+  "name": "Allipos",
+  "short_name": "Allipos",
+  "description": "Allipos - Punto de Venta súper sencillo e intuitivo",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f9fa",
+  "theme_color": "#58cc02",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
+```
+
+| Field | Value | Effect |
+|---|---|---|
+| `display` | `standalone` | Hides the browser address bar; looks like a native app |
+| `start_url` | `/` | Opens the POS screen directly |
+| `theme_color` | `#58cc02` | Duolingo green colours the Android status bar |
+| `background_color` | `#f7f9fa` | Shown during the splash screen before the app paints |
+| `orientation` | `portrait` | Locks the layout to portrait on Android |
+| `icons` | 192 px + 512 px | Used for home screen icon and splash screen |
+
+Both icons carry `"purpose": "any maskable"`, which allows Android to apply its adaptive icon mask (circle, squircle, etc.) without clipping the logo.
+
+---
+
+## How data persists offline
+
+All product definitions and sales history are stored in **`LocalStorage`** — there are no API calls to any server, ever. The `Store` module in `src/js/store.js` reads and writes directly to `localStorage` on every operation.
+
+This means:
+
+- After the first page load, the app works in **full airplane mode**.
+- Products added in the Admin tab and sales recorded during the day survive a browser refresh or phone restart.
+- No authentication, no backend, no data plan required.
+
+<Warning>
+  `LocalStorage` is scoped to the origin and to the browser profile on that device. Data does **not** sync between phones. Each device running Allipos maintains its own completely independent cash register — sales on one phone are invisible to another. At the end of a school fair, each operator should note their totals from the Summary tab before closing the app.
+</Warning>
+
+---
+
+## Testing offline mode
+
+<Steps>
+  <Step title="Open Chrome DevTools">
+    Press `F12` (desktop) or use the browser menu to open DevTools.
+  </Step>
+  <Step title="Navigate to the Application tab">
+    Click **Application** → **Service Workers** in the left sidebar.
+  </Step>
+  <Step title="Enable the Offline checkbox">
+    Check the **Offline** checkbox. The network indicator in the browser toolbar will show a caution icon.
+  </Step>
+  <Step title="Reload the page">
+    Press `Ctrl+R` (or `Cmd+R`). Allipos should load fully from cache — no network requests should succeed.
+  </Step>
+  <Step title="Verify on a real device">
+    Alternatively, load the app once on your phone, then enable **Airplane mode** and reopen the app. All four POS steps, coin photos, and voice effects should work normally.
+  </Step>
+</Steps>
+
+<Info>
+  After deploying a new version of Allipos, the Service Worker's stale-while-revalidate strategy will serve the previous cached version to returning users until they close **all** open tabs and reopen the app. This triggers the new Service Worker's `activate` event, which deletes the old `allipos-v1` cache and takes control. If you need to force an immediate update during development, go to **DevTools → Application → Service Workers** and click **Unregister**, then reload.
+</Info>

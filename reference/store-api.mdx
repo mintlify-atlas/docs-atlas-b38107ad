@@ -1,0 +1,251 @@
+---
+title: "Store module API: products and sales CRUD"
+sidebarTitle: "Store API"
+description: "Complete API reference for the Store module — all methods for reading, writing, and resetting products and sales in Allipos LocalStorage."
+---
+
+The `Store` object (exported from `src/js/store.js`) is the single source of truth for all Allipos data. It exposes synchronous CRUD methods that read from and write to `LocalStorage` directly — no async/await, no promises, no network. Import it and call its methods to read or write products and sales.
+
+```js
+import { Store } from './store.js';
+```
+
+<Warning>
+  All data is stored in LocalStorage and persists only in the current browser on the current device. There is no synchronization between devices or users. If a student uses the POS on one phone and the teacher checks the summary on another, the histories will be separate.
+</Warning>
+
+---
+
+## `Store.init()`
+
+Bootstraps the LocalStorage keys on app start. Called automatically by `getProducts()` and `getSales()`, but can also be called explicitly at application entry.
+
+**What it does:**
+- If `allipos_products` is missing, contains legacy `data:image/svg+xml` images, or the saved version doesn't match `CURRENT_CATALOG_VERSION`, it re-seeds products from `INITIAL_PRODUCTS` and writes the current version string.
+- If `allipos_sales` is missing, initializes it to `{ totalSales: 0, history: [] }` (migrating from the legacy `kermes_sales` key if present).
+
+**Returns:** `void`
+
+```js
+// Called implicitly on every getProducts() / getSales() call,
+// but you can call it explicitly at app startup:
+Store.init();
+```
+
+---
+
+## `Store.getProducts()`
+
+Returns all products currently stored in `allipos_products`.
+
+**Parameters:** none
+
+**Returns:** `Product[]` — the full array of product objects. Falls back to `INITIAL_PRODUCTS` if the stored JSON is malformed.
+
+```js
+const products = Store.getProducts();
+// [
+//   { id: 'prod_1', name: 'Gelatinas', price: 18, image: '...' },
+//   { id: 'prod_2', name: 'Gelatina de Refresco', price: 12, image: '...' },
+//   ...
+// ]
+
+products.forEach(p => {
+  console.log(`${p.name} — $${p.price}`);
+});
+```
+
+---
+
+## `Store.addProduct(product)`
+
+Adds a new product to the catalog and persists it to LocalStorage.
+
+<ParamField body="product" type="object" required>
+  Plain object with the new product's data. The `id` is auto-generated; do not pass one.
+
+  <Expandable title="product fields">
+    <ParamField body="name" type="string" required>
+      Display name of the product (e.g. `"Paletas de Hielo"`).
+    </ParamField>
+    <ParamField body="price" type="number" required>
+      Unit price in MXN. Passed through `parseFloat()` before storage, so string input from HTML forms is safe.
+    </ParamField>
+    <ParamField body="image" type="string">
+      Optional image source — a URL or Base64 data URI. If omitted, a purple popcorn SVG placeholder (`data:image/svg+xml;…`) is generated automatically.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+**Returns:** `Product` — the newly created product object, including its auto-generated `id: prod_${Date.now()}`.
+
+```js
+const newProduct = Store.addProduct({
+  name: 'Paletas de Hielo',
+  price: 8,
+  image: 'data:image/jpeg;base64,/9j/4AAQ...'
+});
+
+console.log(newProduct.id); // 'prod_1728234567890'
+```
+
+---
+
+## `Store.updateProduct(id, updatedFields)`
+
+Updates an existing product in-place and persists the change.
+
+<ParamField body="id" type="string" required>
+  The `id` of the product to update (e.g. `"prod_1"` or `"prod_1728234567890"`).
+</ParamField>
+
+<ParamField body="updatedFields" type="object" required>
+  Object containing the fields to overwrite. All three fields are read; `image` falls back to the existing value if omitted or falsy.
+
+  <Expandable title="updatedFields properties">
+    <ParamField body="name" type="string" required>
+      New display name.
+    </ParamField>
+    <ParamField body="price" type="number" required>
+      New price in MXN. Parsed with `parseFloat()`.
+    </ParamField>
+    <ParamField body="image" type="string">
+      New image URL or Base64 URI. If falsy, the product's existing image is kept unchanged.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+**Returns:** `Product` — the updated product object, or `null` if no product with the given `id` was found.
+
+```js
+const updated = Store.updateProduct('prod_1', {
+  name: 'Gelatinas Grandes',
+  price: 22,
+  image: null // keeps the existing image
+});
+
+if (updated) {
+  console.log(updated.price); // 22
+} else {
+  console.warn('Product not found');
+}
+```
+
+---
+
+## `Store.deleteProduct(id)`
+
+Removes a product from the catalog permanently. Sales records that referenced this product retain the `productName` snapshot, so history is unaffected.
+
+<ParamField body="id" type="string" required>
+  The `id` of the product to remove.
+</ParamField>
+
+**Returns:** `void`
+
+```js
+Store.deleteProduct('prod_1728234567890');
+
+// The product is gone from LocalStorage immediately.
+// Existing sales that referenced it are unaffected.
+```
+
+---
+
+## `Store.resetToDefaultProducts()`
+
+Wipes the current product catalog and restores the 10 built-in `INITIAL_PRODUCTS`. Also updates `allipos_catalog_version` to `CURRENT_CATALOG_VERSION`. This is the same operation triggered by catalog version mismatch on `init()`, but called explicitly — typically from the admin view's "🔄 Recargar Catálogo Base" button.
+
+**Parameters:** none
+
+**Returns:** `Product[]` — the restored `INITIAL_PRODUCTS` array.
+
+```js
+const defaults = Store.resetToDefaultProducts();
+console.log(defaults.length); // 10
+```
+
+---
+
+## `Store.getSales()`
+
+Returns the entire sales store object from `allipos_sales`.
+
+**Parameters:** none
+
+**Returns:** `{ totalSales: number, history: Sale[] }` — the sales store envelope. Falls back to `{ totalSales: 0, history: [] }` if the stored JSON is malformed.
+
+```js
+const { totalSales, history } = Store.getSales();
+console.log(`Total vendido hoy: $${totalSales}`);
+console.log(`Número de ventas: ${history.length}`);
+```
+
+---
+
+## `Store.addSale(saleData)`
+
+Records a completed transaction to `allipos_sales`. The new sale is prepended to `history` (newest first) and `totalSales` is updated atomically in the same LocalStorage write.
+
+<ParamField body="saleData" type="object" required>
+  Transaction data collected during the 4-step POS flow. The `id` and `timestamp` are auto-generated; do not pass them.
+
+  <Expandable title="saleData fields">
+    <ParamField body="productId" type="string" required>
+      `id` of the product being sold.
+    </ParamField>
+    <ParamField body="productName" type="string" required>
+      Display name of the product **at the time of sale** — denormalized for durable history.
+    </ParamField>
+    <ParamField body="quantity" type="number" required>
+      Integer number of units sold.
+    </ParamField>
+    <ParamField body="totalPayable" type="number" required>
+      `quantity × price` — total amount owed.
+    </ParamField>
+    <ParamField body="amountPaid" type="number" required>
+      Cash received from the customer.
+    </ParamField>
+    <ParamField body="changeReturned" type="number" required>
+      `amountPaid − totalPayable` — change to return. Pass `0` for exact payment.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+**Returns:** `Sale` — the newly created sale object, including its auto-generated `id` (`sale_<timestamp>`) and `timestamp` (ISO 8601 UTC string).
+
+```js
+const sale = Store.addSale({
+  productId: 'prod_9',
+  productName: 'Cakes Pops',
+  quantity: 2,
+  totalPayable: 50,
+  amountPaid: 100,
+  changeReturned: 50
+});
+
+console.log(sale.id);        // 'sale_1728234590123'
+console.log(sale.timestamp); // '2026-10-06T15:23:10.000Z'
+```
+
+---
+
+## `Store.clearSales()`
+
+Resets the sales store to its empty state: `totalSales` is set to `0` and `history` is cleared to `[]`. Used by the "Reiniciar Caja" (Reset Register) button in the Summary view at the start of a new school day.
+
+**Parameters:** none
+
+**Returns:** `void`
+
+```js
+Store.clearSales();
+
+const { totalSales, history } = Store.getSales();
+console.log(totalSales); // 0
+console.log(history);    // []
+```
+
+---
+
+**Related pages:** [Data Model](/reference/data-model) · [Audio API](/reference/audio-api) · [Sales Summary Guide](/guide/sales-summary) · [Products Guide](/guide/products)

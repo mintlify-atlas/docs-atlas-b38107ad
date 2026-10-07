@@ -1,0 +1,219 @@
+---
+title: "Sound module API: Web Audio and Speech Synthesis"
+sidebarTitle: "Audio API"
+description: "Reference for the Sound module — Web Audio API sound effects and Spanish SpeechSynthesis narration used throughout the Allipos POS flow."
+---
+
+The `Sound` object (exported from `src/js/audio.js`) manages all audio output in Allipos — from tactile button clicks to full Spanish sentence narration. Every method fails silently via `try/catch` so that audio errors never interrupt a transaction.
+
+```js
+import { Sound } from './audio.js';
+```
+
+<Note>
+  `AudioContext` is lazily initialized on the first call to any `Sound` method via an internal `getAudioContext()` helper. Browsers require a user gesture (tap, click) before an `AudioContext` can play sound — this constraint is automatically satisfied in Allipos because every `Sound` call is triggered by a button tap in the UI.
+</Note>
+
+---
+
+## `Sound.playClick()`
+
+Plays a short, pleasant tactile "pop" — a sine wave that sweeps from 450 Hz down to 150 Hz over 80 ms. Called on every interactive button tap throughout the app to provide immediate physical feedback, mirroring Duolingo's UI behavior.
+
+**Parameters:** none  
+**Returns:** `void`
+
+```js
+// In a button's click handler:
+button.addEventListener('click', () => {
+  Sound.playClick();
+  // ... handle the action
+});
+```
+
+| Property | Value |
+|---|---|
+| Oscillator type | `sine` |
+| Frequency sweep | 450 Hz → 150 Hz |
+| Duration | 80 ms |
+| Peak gain | 0.3 |
+
+---
+
+## `Sound.playError()`
+
+Plays a low warning tone using a triangle wave that steps from 180 Hz to 140 Hz, lasting 250 ms. Called in Step 3 of the POS flow when the tapped denomination causes the displayed amount to remain less than the total payable, reinforcing the visual alert box with an audio cue.
+
+**Parameters:** none  
+**Returns:** `void`
+
+```js
+if (amountPaid < totalPayable) {
+  Sound.playError();
+  showAlertBox(`¡Falta $${(totalPayable - amountPaid).toFixed(2)}!`);
+}
+```
+
+| Property | Value |
+|---|---|
+| Oscillator type | `triangle` |
+| Frequency | 180 Hz → 140 Hz (step at 120 ms) |
+| Duration | 250 ms |
+| Peak gain | 0.3 |
+
+---
+
+## `Sound.playSuccess()`
+
+Plays a festive C Major fanfare — four triangle oscillators triggered in sequence for notes C5, E5, G5, and C6, each offset by 120 ms. Called once when a sale is confirmed at the end of Step 4, providing the celebratory audio reward central to the Duolingo-inspired UX.
+
+**Parameters:** none  
+**Returns:** `void`
+
+```js
+// Called after Store.addSale() succeeds:
+Sound.playSuccess();
+renderResultCard(sale);
+```
+
+| Note | Frequency | Start offset |
+|---|---|---|
+| C5 | 523.25 Hz | +0 ms |
+| E5 | 659.25 Hz | +120 ms |
+| G5 | 783.99 Hz | +240 ms |
+| C6 | 1046.50 Hz | +360 ms |
+
+All notes use `triangle` oscillators. The final note (C6) sustains for 400 ms; earlier notes cut off as the next one starts.
+
+---
+
+## `Sound.speak(text)`
+
+Synthesizes arbitrary text aloud in Spanish using the browser's native `SpeechSynthesis` API. Any in-progress speech is cancelled before the new utterance begins (via `window.speechSynthesis.cancel()`).
+
+<ParamField body="text" type="string" required>
+  The Spanish text to speak. Passed directly to `SpeechSynthesisUtterance`.
+</ParamField>
+
+**Returns:** `void`
+
+**Voice selection logic:** The method queries `window.speechSynthesis.getVoices()` and prefers the first voice with `lang === 'es-mx'`. If no exact match is found, it falls back to any voice whose `lang` starts with `'es'`. If no Spanish voice is available, the browser's default voice is used.
+
+| SpeechSynthesisUtterance property | Value |
+|---|---|
+| `lang` | `'es-MX'` |
+| `rate` | `0.95` (slightly slower for child comprehension) |
+| `pitch` | `1.0` |
+
+```js
+Sound.speak('¡Venta completada! Buen trabajo.');
+```
+
+---
+
+## `Sound.speakAmount(amount)`
+
+Convenience wrapper around `Sound.speak()` that announces a peso denomination with correct singular/plural grammar: `1` speaks as *"1 peso"*, any other value speaks as *"${amount} pesos"*.
+
+<ParamField body="amount" type="number" required>
+  The denomination value to announce (e.g. `1`, `5`, `20`, `50`).
+</ParamField>
+
+**Returns:** `void`
+
+```js
+// User taps the $20 bill button:
+Sound.speakAmount(20); // → "20 pesos"
+
+// User taps the $1 coin button:
+Sound.speakAmount(1);  // → "1 peso"
+```
+
+---
+
+## `Sound.speakChange(changeAmount, breakdown)`
+
+Speaks the complete change instruction in natural Spanish. If `changeAmount` is `0` or negative, it announces *"¡Pago exacto! No hay cambio que entregar."* Otherwise it constructs a grammatically correct sentence describing exactly which bills and coins to return.
+
+<ParamField body="changeAmount" type="number" required>
+  Total change to return to the customer in MXN (e.g. `25`).
+</ParamField>
+
+<ParamField body="breakdown" type="array">
+  Array of denomination objects describing how to make up the change. Each element has:
+
+  <Expandable title="breakdown item fields">
+    <ParamField body="type" type="string" required>
+      `"billete"` for paper bills, `"moneda"` for coins.
+    </ParamField>
+    <ParamField body="value" type="number" required>
+      Denomination value in pesos (e.g. `20`, `5`, `1`).
+    </ParamField>
+    <ParamField body="count" type="number" required>
+      How many of this denomination to give.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+**Returns:** `void`
+
+**Example call and narrated output:**
+
+```js
+Sound.speakChange(25, [
+  { type: 'billete', value: 20, count: 1 },
+  { type: 'moneda',  value: 5,  count: 1 }
+]);
+// Speaks: "El cambio es de 25 pesos. Entrega al cliente:
+//          1 billete de 20 pesos y 1 moneda de 5 pesos."
+```
+
+**Grammar logic from `audio.js`:**
+
+```js
+speakChange(changeAmount, breakdown = []) {
+  if (changeAmount <= 0) {
+    this.speak('¡Pago exacto! No hay cambio que entregar.');
+    return;
+  }
+
+  let speechText = `El cambio es de ${changeAmount} pesos. Entrega al cliente: `;
+  const parts = breakdown.map(item => {
+    const denomText = item.type === 'billete' ? 'billete' : 'moneda';
+    const pluralDenom = item.count > 1
+      ? (denomText === 'billete' ? 'billetes' : 'monedas')
+      : denomText;
+    const pesoUnit = item.value === 1 ? 'peso' : 'pesos';
+    return `${item.count} ${pluralDenom} de ${item.value} ${pesoUnit}`;
+  });
+
+  if (parts.length === 1) {
+    speechText += parts[0] + '.';
+  } else if (parts.length === 2) {
+    speechText += `${parts[0]} y ${parts[1]}.`;
+  } else {
+    const last = parts.pop();
+    speechText += `${parts.join(', ')} y ${last}.`;
+  }
+
+  this.speak(speechText);
+}
+```
+
+The function handles all list lengths: single denomination, two denominations joined by *"y"*, and three or more using a comma-separated list with *"y"* before the last item — standard Spanish list grammar.
+
+---
+
+## Browser Compatibility
+
+| API | Chrome Android | Safari iOS | Firefox Android |
+|---|---|---|---|
+| Web Audio API | ✅ | ✅ | ✅ |
+| SpeechSynthesis | ✅ | ✅ (14.5+) | ✅ |
+| `es-MX` voice | ✅ Built-in | Varies by device | Varies by OS |
+
+When no `es-MX` voice is available (e.g. certain Firefox builds), `Sound.speak()` falls back to any `es-*` voice, then to the browser default. Audio playback (`playClick`, `playError`, `playSuccess`) is unaffected by voice availability.
+
+---
+
+**Related pages:** [Voice & Audio Features](/features/voice-audio) · [POS Flow Guide](/guide/pos-flow) · [Change Calculator](/features/change-calculator) · [Store API](/reference/store-api)

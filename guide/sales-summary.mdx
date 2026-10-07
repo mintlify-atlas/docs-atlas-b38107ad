@@ -1,0 +1,122 @@
+---
+title: "Review daily sales and close out the register"
+sidebarTitle: "Sales Summary"
+description: "The Corte tab shows cumulative sales totals and a full transaction history for the current session, with a one-tap register reset at end of day."
+---
+
+The 📊 **Corte** tab gives teachers and administrators a real-time view of all transactions completed during the current session. There are no manual calculations — every figure updates automatically the moment a cashier taps **✅ CONCLUIR VENTA Y SIGUIENTE** in the [POS checkout flow](/guide/pos-flow).
+
+<Tip>
+  Sales persist across browser refreshes and even after closing the app entirely, thanks to LocalStorage persistence. You can safely reload the page at any point without losing transaction history.
+</Tip>
+
+---
+
+## Total Vendido Hoy
+
+The top of the screen displays a prominent summary card:
+
+```
+┌──────────────────────────────────┐
+│      💰 TOTAL VENDIDO HOY        │
+│            $150.00               │
+│       6 ventas realizadas        │
+└──────────────────────────────────┘
+```
+
+- **Total amount** — the cumulative sum of all `totalPayable` values from completed sales, formatted in Mexican pesos (e.g. `$150.00`)
+- **Transaction count** — the number of completed sales with correct singular/plural labeling (`1 venta realizada` / `6 ventas realizadas`)
+
+Both figures are sourced from `Store.getSales()` on every render and are always in sync with LocalStorage.
+
+---
+
+## Transaction history
+
+Below the summary card, the **📜 Historial de Ventas** section lists every completed transaction in **chronological order, newest first**. Each row shows:
+
+| Field | Example |
+|:------|:--------|
+| Product & quantity | `2x Gelatinas` |
+| Time of sale | `⏰ 10:30` |
+| Amount paid by customer | `Pagó: $50.00` |
+| Change returned | `(Cambio: $14.00)` |
+| Sale total (right-aligned) | `+$36.00` |
+
+If no sales have been recorded yet, the list shows an empty-state message: *"Aún no hay ventas registradas el día de hoy."*
+
+---
+
+## How sales data is stored
+
+Every completed sale is written to LocalStorage by `Store.addSale()` under the key **`allipos_sales`**. The stored object follows this schema:
+
+```json
+{
+  "totalSales": 150.00,
+  "history": [
+    {
+      "id": "sale_1700000000100",
+      "timestamp": "2026-10-06T10:30:00Z",
+      "productId": "prod_1",
+      "productName": "Gelatinas",
+      "quantity": 2,
+      "totalPayable": 36.00,
+      "amountPaid": 50.00,
+      "changeReturned": 14.00
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|:------|:-----|:------------|
+| `totalSales` | `number` | Running cumulative total of all `totalPayable` values in this session |
+| `history` | `array` | Ordered list of sale records, newest entry first (`unshift`) |
+| `id` | `string` | Auto-generated unique identifier: `sale_${Date.now()}` |
+| `timestamp` | `string` | ISO 8601 UTC timestamp assigned at the moment of sale completion |
+| `productId` | `string` | References the product's `id` in `allipos_products` |
+| `productName` | `string` | Snapshot of the product name at time of sale |
+| `quantity` | `number` | Number of units sold |
+| `totalPayable` | `number` | `price × quantity` — the amount owed by the customer |
+| `amountPaid` | `number` | Cash received from the customer |
+| `changeReturned` | `number` | `amountPaid − totalPayable` — change given back |
+
+See [Data Model](/reference/data-model) and [Store API Reference](/reference/store-api) for the complete specification.
+
+---
+
+## Resetting the register
+
+The **🔄 Reiniciar Caja** button (top-right of the history section) closes out the current day's register.
+
+Tapping it triggers a native confirmation dialog:
+
+> *"¿Estás seguro de reiniciar la caja del día? Se borrará el historial de ventas actuales."*
+
+On confirmation, `Store.clearSales()` runs:
+
+```js
+clearSales() {
+  localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify({
+    totalSales: 0,
+    history: []
+  }));
+}
+```
+
+This overwrites the `allipos_sales` key with a fresh zero-state object. The **Total Vendido Hoy** card resets to `$0.00` and the history list returns to its empty state immediately.
+
+<Warning>
+  Resetting the register is **irreversible**. `Store.clearSales()` overwrites LocalStorage with no undo path. If you need a record of the day's sales, photograph or manually note the summary card and history list **before** tapping Reiniciar Caja.
+</Warning>
+
+---
+
+## Related
+
+- [POS Checkout Flow](/guide/pos-flow) — how sales are created and recorded
+- [Manage your product catalog](/guide/products) — update the item list between sessions
+- [Offline Support](/features/offline) — why sales data survives a page reload or app close
+- [Store API Reference](/reference/store-api) — `Store.getSales()`, `Store.addSale()`, `Store.clearSales()`
+- [Data Model](/reference/data-model) — full `allipos_sales` schema reference

@@ -1,0 +1,187 @@
+---
+title: "Complete a sale with the 4-step POS checkout flow"
+sidebarTitle: "POS Checkout"
+description: "Learn how Allipos guides child cashiers through every transaction in 4 clear steps: pick a product, set quantity, accept payment, and hand back change."
+---
+
+The 🛒 **Cobrar** tab is the heart of Allipos. Instead of a blank screen or open number pad, every sale is broken into exactly **4 steps**, each occupying its own full-screen view so the child cashier never has to hold more than one decision in their head at a time.
+
+## Progress bar
+
+At the top of every step a progress bar tracks how far along the current sale is.
+
+```
+Paso 1 de 4  ░░░░░░░░░░░░░░░░  25%
+Paso 2 de 4  ████░░░░░░░░░░░░  50%
+Paso 3 de 4  ████████░░░░░░░░  75%
+Paso 4 de 4  ████████████████ 100%
+```
+
+The label **"Paso X de 4"** appears beside the bar so even early readers always know where they stand.
+
+---
+
+## The 4-step checkout flow
+
+<Steps>
+  <Step title="Step 1 — Select Product">
+    Allipos opens directly on the product grid — no menu, no login. Every product in the catalog appears as a large card showing:
+
+    - A **photo** of the item
+    - The **product name** in bold
+    - The **unit price** (e.g. `$18.00`)
+
+    The cashier simply **taps the card** for the item being sold. The card highlights on selection and the app immediately advances to Step 2.
+
+    <Note>
+      If the catalog is empty, this step shows a friendly prompt instead of the grid:
+      *"No hay productos cargados — ve a la pestaña **PRODUCTOS** para agregar el primer producto."*
+      See [Manage your product catalog](/guide/products) to add items before running your first sale.
+    </Note>
+  </Step>
+
+  <Step title="Step 2 — Set Quantity">
+    After selecting a product, the cashier sets how many units the customer is buying.
+
+    The screen shows:
+    - A large image of the selected product
+    - The unit price as a reminder (e.g. `$18.00 c/u`)
+    - Oversized **`−`** and **`+`** buttons that decrement / increment the quantity counter
+    - A live **TOTAL A COBRAR** banner that multiplies `price × quantity` in real time:
+
+    ```
+    ┌──────────────────────────────┐
+    │      TOTAL A COBRAR          │
+    │          $36.00              │
+    └──────────────────────────────┘
+    ```
+
+    The **`−`** button is disabled when quantity is `1` to prevent accidentally going below one item.
+
+    At the bottom, two navigation buttons appear:
+    - **⬅️ Volver** — returns to the product grid (Step 1)
+    - **Cobrar $XX.XX ➡️** — advances to payment entry (Step 3)
+  </Step>
+
+  <Step title="Step 3 — Accept Payment">
+    This step gives the cashier two ways to enter the amount received from the customer — they can use either method or combine both:
+
+    #### Option A — Tap coin / bill buttons
+
+    A visual grid of **7 denomination buttons** displays real photographs of Mexican currency in circulation:
+
+    | Denomination | Type     |
+    |:-------------|:---------|
+    | $1           | Moneda   |
+    | $2           | Moneda   |
+    | $5           | Moneda   |
+    | $10          | Moneda   |
+    | $20          | Billete  |
+    | $50          | Billete  |
+    | $100         | Billete  |
+
+    Every tap **accumulates** the running total shown in the numeric input field above. The voice assistant immediately announces each denomination tapped aloud in Spanish (e.g. *"veinte pesos"*).
+
+    #### Option B — Type directly
+
+    A numeric input field (`inputmode="decimal"`) lets the cashier type any arbitrary peso amount directly — useful for exact or mixed amounts.
+
+    #### Smart shortcut buttons
+
+    - **✨ ¡PAGO EXACTO! ($XX.XX)** — sets the received amount to exactly the total payable in one tap, triggering the voice confirmation *"Pago exacto"*
+    - **🧹 Borrar** — clears the input back to zero and announces *"Borrado"*
+
+    #### Real-time validation
+
+    The app checks the entered amount against the sale total on every change:
+
+    - If `amount < total`, a **red alert** appears:
+      > ⚠️ Recibido ($X.XX) < Total ($X.XX). Faltan $X.XX.
+
+    - If `amount ≥ total`, a **green confirmation** replaces it:
+      > ✅ Dinero suficiente • Cambio a entregar: $X.XX
+
+    The **"Calcular Cambio ➡️"** button remains **disabled** until the entered amount meets or exceeds the total payable. Once sufficient, the button activates and a tap on it plays the success fanfare, advances to Step 4, and triggers the voice narration of the change.
+
+    <Note>
+      Voice narration uses the Web Speech API with locale `es-MX`. See [Voice & Audio](/features/voice-audio) for browser compatibility details and customization options.
+    </Note>
+  </Step>
+
+  <Step title="Step 4 — Change & Success">
+    The final screen celebrates the completed sale and tells the cashier exactly what change to hand back.
+
+    #### Change amount
+
+    The change due is displayed in **large green text** at the top of the result card:
+
+    ```
+    CAMBIO A ENTREGAR AL CLIENTE
+           $14.00
+    ```
+
+    If the customer paid the exact amount, the screen shows *"✨ ¡Pago exacto! No hay cambio que entregar."* instead of a breakdown.
+
+    #### Visual coin/bill breakdown
+
+    When change is owed, Allipos calculates the optimal combination of denominations and shows each piece as a card with:
+    - A **real photo** of the coin or bill
+    - The **quantity** to hand back (e.g. `2x`)
+    - The denomination label (e.g. `Billete $10`)
+
+    #### Alternative combinations
+
+    If the cashbox is missing a particular denomination, the cashier can cycle through up to **6 mathematically valid combinations** using:
+
+    > **🔄 Ver otra forma de dar cambio** `1/3`
+
+    The counter (e.g. `1/3`) shows which option is currently displayed and how many alternatives exist. Each time the button is tapped, the new combination is also read aloud by the voice assistant.
+
+    #### Replay narration
+
+    The **🔊 Escuchar** button replays the full voice narration at any time — ideal when a denomination is hard to identify or when the surrounding environment is noisy.
+
+    #### Completing the sale
+
+    Tapping **✅ CONCLUIR VENTA Y SIGUIENTE** does the following:
+
+    1. Calls `Store.addSale()` which writes the transaction record to LocalStorage under the `allipos_sales` key (see [Data Model](/reference/data-model))
+    2. Adds the `totalPayable` amount to the running `totalSales` accumulator
+    3. Prepends the new record to the `history` array (newest first)
+    4. Resets all internal state (`selectedProduct`, `quantity`, `selectedBill`, `currentComboIndex`)
+    5. Returns to **Step 1** so the cashier is immediately ready for the next customer
+
+    <Note>
+      Voice narration in Spanish (`es-MX`) automatically reads denominations in Step 3 and the full change instruction in Step 4. Learn more in [Voice & Audio](/features/voice-audio).
+    </Note>
+  </Step>
+</Steps>
+
+---
+
+## What gets saved when you tap "CONCLUIR VENTA"
+
+Each completed sale is persisted to LocalStorage by `Store.addSale()`. The method stamps a unique `id` (e.g. `sale_1700000000100`) and an ISO 8601 `timestamp` before writing the record:
+
+```js
+Store.addSale({
+  productId:      selectedProduct.id,
+  productName:    selectedProduct.name,
+  quantity:       quantity,
+  totalPayable:   totalPayable,   // price × quantity
+  amountPaid:     selectedBill,   // cash received
+  changeReturned: change          // amountPaid − totalPayable
+});
+```
+
+The complete shape of the persisted object is documented in [Data Model](/reference/data-model). To view all saved sales and reset the register, see [Sales Summary](/guide/sales-summary).
+
+---
+
+## Related
+
+- [Manage your product catalog](/guide/products) — add products before taking your first sale
+- [Sales Summary & Register Close-out](/guide/sales-summary) — view totals and reset the register
+- [Change Calculator](/features/change-calculator) — deep dive on the multi-combination algorithm
+- [Voice & Audio](/features/voice-audio) — Web Speech API integration details
+- [Store API Reference](/reference/store-api) — `Store.addSale()` and related methods

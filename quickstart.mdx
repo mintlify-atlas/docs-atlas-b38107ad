@@ -1,47 +1,114 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get started with Allipos in 5 minutes"
+sidebarTitle: "Quickstart"
+description: "Clone the repo, install dependencies, and spin up Allipos locally — then open it on your phone and complete a first test sale in under 5 minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
+By the end of this guide you will have Allipos running on your local machine at `http://localhost:5173`, the same URL accessible on any phone sharing your Wi-Fi network. You'll explore all three tabs of the app and walk through a complete test sale — selecting a product, adjusting the quantity, entering payment, and reading the visual change breakdown — so you're fully oriented before deploying to production or installing it as a PWA.
 
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
+<Info>
+  **Prerequisites**
 
-## Prerequisites
+  - [Node.js](https://nodejs.org/) **18 or higher** (check with `node -v`)
+  - **npm** (bundled with Node.js; check with `npm -v`)
+  - A modern browser — **Chrome** (Android & desktop) or **Safari** (iOS) are recommended for full PWA install and Web Speech API support
+</Info>
 
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+## Setup Steps
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Clone the repository">
+    Open a terminal and run:
 
     ```bash
-    npm install your-package
+    git clone https://github.com/soymatudev/allipos.git && cd allipos
     ```
+
+    This clones the Allipos repository and moves you into the project directory. The repo contains the full source under `src/`, the PWA assets under `public/`, and configuration files (`vite.config.js`, `vercel.json`) at the root.
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
 
+  <Step title="Install dependencies">
     ```bash
-    your-cli init
+    npm install
     ```
+
+    Allipos has **a single dev dependency**: [Vite](https://vitejs.dev/) 5.x. There are no runtime framework packages — everything is Vanilla JS. The install takes only a few seconds and produces a `node_modules/` folder containing the Vite bundler and its toolchain.
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
 
+  <Step title="Start the development server">
     ```bash
-    your-cli start
+    npm run dev
     ```
+
+    Vite starts a hot-reloading dev server. You'll see output similar to:
+
+    ```
+      VITE v5.x.x  ready in 300 ms
+
+      ➜  Local:   http://localhost:5173/
+      ➜  Network: http://192.168.x.x:5173/
+    ```
+
+    - Open **`http://localhost:5173`** in your desktop browser.
+    - To test on a phone, make sure the device is on the **same Wi-Fi network** as your computer, then open the **Network** URL (e.g. `http://192.168.x.x:5173`) in Chrome or Safari on the phone.
+
+    <Note>
+      The Service Worker and PWA install prompt are only active in the **production build** (`npm run build` → `npm run preview`). During development, voice narration and sound effects still work, but offline caching does not. See the [PWA Install guide](/pwa-install) for the full install flow.
+    </Note>
+  </Step>
+
+  <Step title="Explore the three tabs">
+    Allipos has a bottom navigation bar with three tabs:
+
+    | Tab | Icon | Purpose |
+    |:---|:---:|:---|
+    | **Cobrar** | 🛒 | Main POS — the checkout flow used during a sale |
+    | **Productos** | 📦 | Product catalog management — add, edit, or delete items |
+    | **Corte** | 📊 | Daily sales summary — total revenue, transaction history, and register reset |
+
+    Tap each tab to get familiar with the layout. The app ships with a pre-loaded catalog of typical kermés items — *Gelatinas* ($18), *Aguas Frescas* ($10), *Gomitas Enchiladas* ($15), *Cake Pops* ($25), and more — so you can start testing immediately without adding products first.
+  </Step>
+
+  <Step title="Make a test sale">
+    Switch to the **🛒 Cobrar** tab and follow the 4-step checkout flow:
+
+    **Step 1 — Select a product**
+
+    Tap any product card (for example, *Aguas Frescas* at $10.00). The card highlights and you advance to the quantity screen.
+
+    **Step 2 — Adjust quantity**
+
+    Use the large **`+`** and **`−`** buttons to set the quantity. The total updates in real time. Set it to **2** → total becomes **$20.00**.
+
+    **Step 3 — Enter payment**
+
+    Tap the photo of the **$50** bill button. The app registers $50.00 received. You'll hear a click sound and — if voice is enabled — the voice will say *"50 pesos"*. The display confirms the amount is sufficient.
+
+    **Step 4 — Read the change breakdown**
+
+    The screen shows **Cambio: $30.00** in large green text, along with a visual breakdown of the exact bills and coins to return (e.g. `1 × Billete de $20` and `1 × Billete de $10`). The voice reads the full instruction aloud. Tap **🔊 Escuchar** to replay it.
+
+    Tap the green confirm button to complete the sale. A victory fanfare plays and the transaction is saved to the **Corte** summary.
+
+    <Tip>
+      If the customer hands over less money than the total, the app shows a red *"Faltan $X.XX"* warning and the confirm button stays disabled — no accidental underpayment possible.
+    </Tip>
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## What's Next
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+<CardGroup cols={2}>
+  <Card title="POS Flow Guide" icon="cart-shopping" href="/guide/pos-flow">
+    Deep dive into the 4-step checkout — step transitions, payment validation logic, change calculation algorithm, and alternate change combinations.
+  </Card>
+  <Card title="Products Guide" icon="box-open" href="/guide/products">
+    Learn how to configure the catalog for your school fair — adding items with photos from a camera or gallery, editing prices, and resetting to the default catalog.
+  </Card>
+  <Card title="Install as PWA" icon="mobile-screen" href="/pwa-install">
+    Add Allipos to a phone's home screen so it launches in full-screen standalone mode and works entirely offline — no browser bar, no Wi-Fi required.
+  </Card>
+  <Card title="Deploy to Production" icon="rocket" href="/deployment">
+    Publish Allipos to Vercel (recommended) or any static host with a single command. Covers `npm run build`, the `dist/` output, and the included `vercel.json` config.
+  </Card>
+</CardGroup>

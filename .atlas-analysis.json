@@ -1,0 +1,84 @@
+{
+  "projectType": "saas",
+  "projectName": "Allipos",
+  "projectDescription": "A Duolingo-inspired, mobile-first PWA point-of-sale system designed for children to manage sales, count money, and calculate change autonomously at school fairs — with voice guidance, offline support, and a gamified 3D UI.",
+  "theme": "almond",
+  "primaryColor": "#1cb0f6",
+  "lightColor": "#58cc02",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Getting Started",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": ["introduction", "quickstart"]
+          },
+          {
+            "group": "Installation & Deployment",
+            "pages": ["installation", "pwa-install", "deployment"]
+          }
+        ]
+      },
+      {
+        "tab": "User Guide",
+        "groups": [
+          {
+            "group": "Using Allipos",
+            "pages": ["guide/pos-flow", "guide/products", "guide/sales-summary"]
+          },
+          {
+            "group": "Features",
+            "pages": ["features/voice-audio", "features/change-calculator", "features/offline"]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Technical Reference",
+            "pages": ["reference/data-model", "reference/store-api", "reference/audio-api", "reference/design-system"]
+          },
+          {
+            "group": "Project",
+            "pages": ["reference/configuration", "reference/changelog"]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Guided 4-step POS checkout flow (product → quantity → payment → change)",
+    "Visual denomination buttons with real photos of Mexican coins and bills ($1–$100)",
+    "Automatic change calculation with multiple breakdown alternatives",
+    "Native Web Speech API voice assistant in Spanish (es-MX) for change dictation",
+    "Web Audio API sound effects: tactile click, error tone, and victory fanfare",
+    "Product catalog management with camera/gallery photo upload (Base64 + LocalStorage)",
+    "Sales summary with running total and chronological transaction history",
+    "100% offline-capable PWA with Service Worker caching and installable manifest",
+    "Duolingo-inspired 3D tactile button design with high-contrast accessible palette",
+    "Automatic catalog versioning to sync LocalStorage without manual resets"
+  ],
+  "publicApiSurface": [
+    "Store.init()",
+    "Store.getProducts()",
+    "Store.addProduct(product)",
+    "Store.updateProduct(id, updatedFields)",
+    "Store.deleteProduct(id)",
+    "Store.resetToDefaultProducts()",
+    "Store.getSales()",
+    "Store.addSale(saleData)",
+    "Store.clearSales()",
+    "Sound.playClick()",
+    "Sound.playError()",
+    "Sound.playSuccess()",
+    "Sound.speak(text)",
+    "Sound.speakAmount(amount)",
+    "Sound.speakChange(changeAmount, breakdown)",
+    "renderPosView(container)",
+    "renderAdminView(container)",
+    "renderSummaryView(container)"
+  ]
+}

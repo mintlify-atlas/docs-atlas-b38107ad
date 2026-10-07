@@ -1,0 +1,63 @@
+---
+title: "Allipos: POS móvil e inclusivo para kermeses escolares"
+sidebarTitle: "Introduction"
+description: "Allipos es una PWA de punto de venta estilo Duolingo diseñada para que niños gestionen cobros y cambio en kermeses escolares sin estrés."
+---
+
+Allipos is a mobile-first Progressive Web App (PWA) point-of-sale system built specifically for children managing sales at school fairs — known in Mexico as **kermeses**. Inspired by Duolingo's gamified micro-learning approach, Allipos eliminates complex mental arithmetic by guiding the user through a **4-step checkout flow** with giant tactile buttons, high-contrast colors, real photographs of Mexican coins and banknotes, and full Spanish voice narration. The result is a tool that any child — including those with math learning barriers — can use **confidently, independently, and without an internet connection**.
+
+<Note>
+  Allipos is built for a **Mexican Spanish (es-MX)** context. All UI labels, voice narration, and currency denominations (MXN: $1, $2, $5, $10, $20, $50, $100) are in Spanish. The app is ideally suited for primary and secondary school environments in Mexico, but can be adapted to other Spanish-speaking regions by customizing the product catalog and voice locale.
+</Note>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="4-Step Guided Checkout" icon="cart-shopping" href="/guide/pos-flow">
+    A linear, impossible-to-get-lost sales flow: select product → adjust quantity → tap the bill or coin received → see the exact change breakdown. No free-form math required.
+  </Card>
+  <Card title="Spanish Voice Guidance" icon="volume-high" href="/features/voice-audio">
+    Web Speech API narrates every step in es-MX — announcing denominations as they're tapped and reading out the full change instruction aloud: *"El cambio es de 25 pesos. Entrega: 1 billete de 20 pesos y 1 moneda de 5 pesos."*
+  </Card>
+  <Card title="Visual Change Breakdown" icon="coins" href="/features/change-calculator">
+    Step 4 displays change as a graphic list of real coin and banknote photos with quantities (e.g. `1 × $20`, `2 × $2`, `1 × $1`). Alternate combinations are offered when a denomination isn't available in the cash drawer.
+  </Card>
+  <Card title="100% Offline PWA" icon="wifi-slash" href="/features/offline">
+    A Service Worker caches all assets — HTML, CSS, JS, coin images, product photos — so Allipos works in full airplane mode, perfect for schoolyard patios without Wi-Fi.
+  </Card>
+  <Card title="Product Management" icon="box-open" href="/guide/products">
+    Teachers or students can add, edit, and delete catalog items with a name, price, and photo (from camera or gallery). Images are stored as Base64 in LocalStorage — no server needed.
+  </Card>
+  <Card title="Daily Sales Summary" icon="chart-bar" href="/guide/sales-summary">
+    The **Corte** tab accumulates the day's total revenue and transaction count, with a chronological history of every sale. One tap resets the register for a fresh school day.
+  </Card>
+</CardGroup>
+
+## Technology Stack
+
+| Layer | Technology |
+|:---|:---|
+| **Build Tool** | [Vite](https://vitejs.dev/) 5.x |
+| **Frontend** | Vanilla JavaScript (ES Modules) |
+| **Styling** | CSS3 — custom Duolingo-inspired 3D design system |
+| **Typography** | [Nunito](https://fonts.google.com/specimen/Nunito) (Google Fonts) |
+| **Data Persistence** | `localStorage` — products (`allipos_products`), sales (`allipos_sales`), catalog version |
+| **Audio & Sound FX** | Web Audio API — tap clicks, warning tones, victory fanfare (C5-E5-G5-C6) |
+| **Voice Narration** | Web Speech API (`SpeechSynthesis`, locale `es-MX`) |
+| **Offline Support** | Service Worker (`/sw.js`) + Web App Manifest (`/manifest.json`) |
+
+## Who Is Allipos For?
+
+**Allipos was designed with three audiences in mind:**
+
+- **Children at school fairs** — Students running a kermés booth who need to collect payment and return change quickly without making arithmetic mistakes in front of customers.
+- **Inclusive classrooms** — Students with dyscalculia, attention difficulties, or other math learning barriers who benefit from a step-by-step guided interface that does the calculation for them.
+- **Teachers and fair organizers** — Adults who configure the product catalog in advance and want a zero-training-required tool that works offline on any Android or iOS phone.
+
+The app deliberately removes every source of ambiguity: there is no open numeric keypad for the total, no mental subtraction, and no confusing UI chrome. The child only needs to answer two questions: *"Which product?"* and *"Which bill or coin did the customer hand me?"*
+
+## Next Steps
+
+Ready to try it? Follow the [Quickstart](/quickstart) to run Allipos locally and open it on a phone in under 5 minutes, or jump to the [PWA Install guide](/pwa-install) to install it directly to a device's home screen for offline use.
+
+For a deeper look at how the POS flow works step by step, see the [POS Flow guide](/guide/pos-flow). To understand how products and sales data are persisted, see the [Data Model reference](/reference/data-model).

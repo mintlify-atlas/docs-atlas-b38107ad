@@ -1,0 +1,128 @@
+---
+title: "Install Allipos as a PWA on Android and iOS"
+sidebarTitle: "PWA Install"
+description: "Add Allipos to your phone's home screen for full-screen standalone use — no app store needed, fully offline-capable once installed via Chrome or Safari."
+---
+
+Allipos ships a **Web App Manifest** (`public/manifest.json`) and a **Service Worker** (`public/sw.js`), which together allow any modern mobile browser to install it as a standalone app directly from the URL — no App Store or Play Store required. Once installed, it behaves indistinguishably from a native app.
+
+## What changes after installation
+
+| Before install | After install |
+|---|---|
+| Runs inside the browser with address bar and navigation chrome | Opens in **standalone mode** — no browser UI at all |
+| Requires a network connection on first load | **Fully offline** — the Service Worker caches all assets on first visit |
+| Accessed by typing or bookmarking a URL | Launched from a **home-screen icon** like any native app |
+| Standard browser title bar colour | Custom **theme colour** (`#58cc02`) tints the status bar |
+
+---
+
+## Install on your device
+
+<Tabs>
+  <Tab title="Android (Chrome)">
+    <Steps>
+      <Step title="Open the app URL in Chrome">
+        Navigate to your Allipos URL (e.g. `https://allipos.vercel.app`) in **Google Chrome** on your Android device.
+      </Step>
+
+      <Step title="Open the browser menu">
+        Tap the **three-dot menu (⋮)** in the top-right corner of Chrome.
+      </Step>
+
+      <Step title="Tap 'Add to home screen'">
+        Select **"Add to home screen"** (or **"Install app"** if Chrome has already detected the manifest and shows the banner automatically).
+      </Step>
+
+      <Step title="Confirm the install">
+        A dialog will appear showing the app name **"Allipos"** and icon. Tap **"Add"** or **"Install"** to confirm.
+
+        Allipos will appear on your home screen and can be launched in full-screen standalone mode — even with airplane mode enabled.
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="iOS (Safari)">
+    <Steps>
+      <Step title="Open the app URL in Safari">
+        Navigate to your Allipos URL in **Safari** on your iPhone or iPad. PWA install on iOS is only supported through Safari — Chrome and other iOS browsers do not expose the "Add to Home Screen" option for web apps.
+      </Step>
+
+      <Step title="Tap the Share button">
+        Tap the **Share button (□↑)** in the Safari toolbar — it appears at the bottom of the screen on iPhone or at the top on iPad.
+      </Step>
+
+      <Step title="Select 'Add to Home Screen'">
+        Scroll through the share sheet and tap **"Add to Home Screen"**.
+      </Step>
+
+      <Step title="Confirm the install">
+        Safari will pre-fill the name **"Allipos"**. Tap **"Add"** in the top-right corner of the dialog.
+
+        The app icon will appear on your home screen. Launching it opens Allipos in full-screen standalone mode with no Safari navigation chrome.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+---
+
+## Technical details — Web App Manifest
+
+The manifest at `public/manifest.json` declares how the browser should present Allipos when installed. Here are the key fields and their actual values:
+
+```json public/manifest.json
+{
+  "name": "Allipos",
+  "short_name": "Allipos",
+  "description": "Allipos - Punto de Venta súper sencillo e intuitivo",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f9fa",
+  "theme_color": "#58cc02",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
+```
+
+| Field | Value | Effect |
+|---|---|---|
+| `name` | `"Allipos"` | Full app name shown during install prompt and on the splash screen |
+| `short_name` | `"Allipos"` | Label shown beneath the home-screen icon |
+| `display` | `"standalone"` | Hides all browser UI — address bar, navigation buttons, tab strip |
+| `start_url` | `"/"` | The page the OS opens when the icon is tapped |
+| `background_color` | `"#f7f9fa"` | Splash screen background while the app is loading |
+| `theme_color` | `"#58cc02"` | Tints the Android status bar and iOS status bar in Allipos green |
+| `orientation` | `"portrait"` | Locks the app to vertical orientation — optimised for phone use |
+| `purpose: "any maskable"` | — | Icons are safe-zone compatible for adaptive icon shapes on Android 8+ |
+
+## Service Worker caching strategy
+
+The Service Worker (`public/sw.js`) uses a **stale-while-revalidate** strategy: cached assets are served immediately for instant load times, while a background fetch silently updates the cache. On first install the following assets are pre-cached:
+
+- `index.html`, all JS modules (`app.js`, `store.js`, `audio.js`, `posView.js`, `adminView.js`, `summaryView.js`)
+- `style.css` and `manifest.json`
+- All coin and banknote photos, and product inventory images
+
+This means Allipos works completely offline after the first visit — ideal for school fairs with no Wi-Fi.
+
+<Note>
+  On Android, Chrome may display an **automatic install banner** or an "Add to Home Screen" prompt after you visit Allipos a few times and engage with the app. You do not need to manually trigger the three-dot menu in that case — just tap the banner when it appears.
+</Note>
+
+<Warning>
+  Camera and gallery access for product photos (used in the Admin view to upload product images) requires the page to be served over **HTTPS**. This is automatically satisfied when you deploy to Vercel or any other TLS-enabled host. The local `http://localhost:3000` development URL is exempt from this restriction by browser security policy, but any production or staging URL on a custom domain must use a valid TLS certificate.
+</Warning>

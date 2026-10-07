@@ -1,0 +1,151 @@
+---
+title: "Manage your product catalog in Allipos"
+sidebarTitle: "Products"
+description: "Add, edit, and remove kermés products in Allipos — including photo upload from the device camera or gallery — to keep your POS catalog up to date."
+---
+
+The 📦 **Productos** tab is the admin panel where teachers or event organizers set up the product catalog **before the fair begins**. Everything a cashier can sell in the [POS checkout flow](/guide/pos-flow) must be registered here first.
+
+---
+
+## Pre-loaded default catalog
+
+On the very first launch — or any time the app detects a catalog version change — Allipos automatically populates LocalStorage with **10 ready-to-use kermés products**:
+
+| # | Product | Price |
+|:--|:--------|------:|
+| 1 | Gelatinas | $18.00 |
+| 2 | Gelatina de Refresco | $12.00 |
+| 3 | Aguas Frescas | $10.00 |
+| 4 | Gomitas Enchiladas | $15.00 |
+| 5 | Garapiñados | $10.00 |
+| 6 | Chocoretas | $10.00 |
+| 7 | Manzanas | $35.00 |
+| 8 | Cakes Pops | $25.00 |
+| 9 | Carlota de Limon | $25.00 |
+| 10 | Flan | $25.00 |
+
+Each default product ships with a **real inventory photograph** bundled inside the app — no internet connection is required to display them.
+
+---
+
+## Automatic catalog versioning
+
+The app tracks the installed catalog using a version string stored under the `allipos_catalog_version` key in LocalStorage. The current version is defined in `store.js` as:
+
+```js
+const CURRENT_CATALOG_VERSION = '2026.10.06.allipos_v1';
+```
+
+During `Store.init()`, three conditions each trigger an **automatic catalog refresh** — overwriting the stored product list with the latest `INITIAL_PRODUCTS` array from the source code:
+
+1. No products exist in LocalStorage yet (first launch)
+2. Stored products still contain legacy `data:image/svg+xml` placeholder images
+3. The saved `allipos_catalog_version` string does not match `CURRENT_CATALOG_VERSION`
+
+This means that whenever a developer ships an update that changes product photos, names, or prices, end users receive the updated catalog automatically on next page load — no manual data clearing required.
+
+---
+
+## Adding a product
+
+<Steps>
+  <Step title="Open the Productos tab">
+    Tap the **📦 PRODUCTOS** button in the bottom tab bar. The form at the top of the screen defaults to *"➕ Cargar Nuevo Producto"* mode.
+  </Step>
+
+  <Step title="Enter the product name and price">
+    Fill in the two required fields:
+
+    - **Nombre del Producto** — e.g. `Taco de Canasta`, `Elote Preparado`
+    - **Precio ($ MXN)** — accepts decimals in `0.50` increments (e.g. `15.00`)
+
+    Both fields are required; submitting with an empty name or a price ≤ 0 shows an error alert.
+  </Step>
+
+  <Step title="Attach a photo (optional)">
+    Tap the **photo preview box** (showing 📷 by default) to open the device's native file picker. On mobile the picker offers both the **camera** and the **gallery** as sources.
+
+    After selecting an image, `FileReader.readAsDataURL()` converts it to a **Base64-encoded string** which is stored directly in LocalStorage alongside the product record.
+
+    If you skip this step, Allipos generates and stores a colorful **SVG placeholder** automatically:
+
+    ```js
+    // store.js — fallback when no image is provided
+    function createDefaultSVG(emoji, bg = '#ffe3ad') {
+      // Returns a data:image/svg+xml;utf8,... URI
+    }
+    ```
+  </Step>
+
+  <Step title="Tap Add">
+    Press **💾 AGREGAR PRODUCTO**. The app calls `Store.addProduct()`, which:
+
+    1. Assigns a unique `id` using `prod_${Date.now()}`
+    2. Parses the price as a float
+    3. Falls back to an SVG placeholder if no image was provided
+    4. Appends the new product to the LocalStorage array under `allipos_products`
+
+    The form clears itself and the new item appears at the bottom of the **📋 Catálogo Actual** list immediately.
+  </Step>
+</Steps>
+
+---
+
+## Editing a product
+
+1. Scroll down to the **📋 Catálogo Actual** list.
+2. Find the product card and tap **✏️ Editar**.
+3. The form at the top of the page re-fills with the product's existing **name**, **price**, and **photo**.
+4. Make your changes — you can update any combination of the three fields.
+5. Tap **💾 GUARDAR CAMBIOS** to call `Store.updateProduct(id, updatedFields)`.
+
+While a product is being edited its card in the list is highlighted with a blue border so you always know which item is selected. Tapping **❌ Cancelar** discards all changes and returns the form to *"Add new product"* mode without modifying LocalStorage.
+
+---
+
+## Deleting a product
+
+1. Find the product card in the **📋 Catálogo Actual** list.
+2. Tap the **🗑️ Borrar** button on that card.
+3. A native confirmation dialog appears: *"¿Estás seguro de borrar este producto del catálogo?"*
+4. Confirm to call `Store.deleteProduct(id)`, which filters the product out of the LocalStorage array.
+
+If the product being deleted happens to be the one currently open in the edit form, the form is also cleared automatically.
+
+<Warning>
+  Deleting all products leaves the catalog empty. The POS tab will display *"No hay productos cargados"* and no sales can be made until at least one product is added. Keep at least one product loaded before opening the register for a fair.
+</Warning>
+
+---
+
+## Reset to the default catalog
+
+The **🔄 Recargar Catálogo Base** button (top-right of the catalog section) restores the original 10 kermés products in one tap.
+
+Tapping it shows a confirmation prompt:
+
+> *"¿Deseas restablecer el catálogo con los productos definidos en el código? Se actualizarán las fotos, nombres y precios del sistema."*
+
+On confirmation, `Store.resetToDefaultProducts()` runs:
+
+```js
+resetToDefaultProducts() {
+  localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
+  localStorage.setItem(STORAGE_KEYS.CATALOG_VERSION, CURRENT_CATALOG_VERSION);
+  return INITIAL_PRODUCTS;
+}
+```
+
+This overwrites the entire `allipos_products` key and resets the version string to `CURRENT_CATALOG_VERSION`. Any custom products added since the last reset will be replaced.
+
+---
+
+## Related
+
+- [POS Checkout Flow](/guide/pos-flow) — how products appear in the 4-step sales screen
+- [Sales Summary](/guide/sales-summary) — view totals for all completed sales
+- [Offline Support](/features/offline) — how product images are cached for use without Wi-Fi
+- [Store API Reference](/reference/store-api) — `Store.addProduct()`, `Store.updateProduct()`, `Store.deleteProduct()`
+- [Data Model](/reference/data-model) — full schema for the `allipos_products` LocalStorage key
+- [Configuration](/reference/configuration) — `CURRENT_CATALOG_VERSION` and other constants

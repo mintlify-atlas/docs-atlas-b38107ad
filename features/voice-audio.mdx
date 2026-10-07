@@ -1,0 +1,164 @@
+---
+title: "Voice narration and sound effects in Allipos"
+sidebarTitle: "Voice & Audio"
+description: "How Allipos uses the Web Speech API (es-MX) for Spanish voice narration and the Web Audio API for programmatic sound effects that guide children through checkout."
+---
+
+Allipos uses two native browser APIs — **Web Speech API** for Spanish voice narration and **Web Audio API** for programmatic sound effects — with no external audio files required. Every sound and spoken word is generated entirely inside the browser at runtime, keeping the app lean and fully offline.
+
+## Web Speech API (Voice Narration)
+
+The voice assistant is built on the browser's built-in `SpeechSynthesis` interface. No third-party TTS service or audio file is ever downloaded.
+
+**Configuration:**
+
+| Property | Value | Reason |
+|---|---|---|
+| `lang` | `es-MX` | Mexican Spanish, matching the target audience |
+| `rate` | `0.95` | Slightly slower than default for clear children's comprehension |
+| `pitch` | `1.0` | Natural, unmodified pitch |
+
+If an `es-MX` voice is not installed on the device, Allipos falls back to any `es-*` voice available:
+
+```js
+const voices = window.speechSynthesis.getVoices();
+const esMxVoice =
+  voices.find(v => v.lang.toLowerCase() === 'es-mx') ||
+  voices.find(v => v.lang.toLowerCase().startsWith('es'));
+if (esMxVoice) {
+  utterance.voice = esMxVoice;
+}
+```
+
+### Narration triggers
+
+There are three moments when the voice assistant fires automatically or on demand:
+
+**1 — Denomination tap (Step 3)**  
+Every time a child taps a coin or bill button to add it to the running total, `Sound.speakAmount()` immediately announces the denomination. This reinforces the monetary value in real time.
+
+- Tap **$1** → `"1 peso"`
+- Tap **$20** → `"20 pesos"`
+
+**2 — Auto-narration on reaching Step 4**  
+As soon as the sale advances to the change-delivery screen, `Sound.speakChange()` fires automatically (after a 350 ms delay to let the screen render first). The full instruction is spoken in natural Spanish:
+
+> *"El cambio es de 25 pesos. Entrega al cliente: 1 billete de 20 pesos y 1 moneda de 5 pesos."*
+
+For exact-payment sales it says:
+
+> *"¡Pago exacto! No hay cambio que entregar."*
+
+**3 — 🔊 Escuchar button**  
+The *Escuchar* button on Step 4 lets the child replay the current combination's narration as many times as needed. Tapping it also plays the tactile click sound first, then re-invokes `Sound.speakChange()` with the active breakdown.
+
+### Grammar rules
+
+`speakChange()` applies Spanish grammar rules so the voice always sounds natural:
+
+- Singular `"peso"` when the denomination value is `1`, plural `"pesos"` for all other values.
+- Singular `"billete"` / `"moneda"` when `count === 1`, plural `"billetes"` / `"monedas"` otherwise.
+- Lists of two items are joined with `" y "`. Lists of three or more use comma separation with a final `" y "` before the last item.
+
+Here is the exact `speakChange()` function from `src/js/audio.js`:
+
+```js
+speakChange(changeAmount, breakdown = []) {
+  if (changeAmount <= 0) {
+    this.speak('¡Pago exacto! No hay cambio que entregar.');
+    return;
+  }
+
+  let speechText = `El cambio es de ${changeAmount} pesos. Entrega al cliente: `;
+  const parts = breakdown.map(item => {
+    const denomText = item.type === 'billete' ? 'billete' : 'moneda';
+    const pluralDenom =
+      item.count > 1
+        ? denomText === 'billete' ? 'billetes' : 'monedas'
+        : denomText;
+    const pesoUnit = item.value === 1 ? 'peso' : 'pesos';
+    return `${item.count} ${pluralDenom} de ${item.value} ${pesoUnit}`;
+  });
+
+  if (parts.length === 1) {
+    speechText += parts[0] + '.';
+  } else if (parts.length === 2) {
+    speechText += `${parts[0]} y ${parts[1]}.`;
+  } else {
+    const last = parts.pop();
+    speechText += `${parts.join(', ')} y ${last}.`;
+  }
+
+  this.speak(speechText);
+}
+```
+
+<Note>
+  The `speak()` helper always calls `window.speechSynthesis.cancel()` before creating a new `SpeechSynthesisUtterance`. This prevents multiple narrations from overlapping when the child taps buttons in quick succession.
+</Note>
+
+---
+
+## Web Audio API (Sound Effects)
+
+All sounds are generated programmatically using oscillators and gain nodes — no `.mp3` or `.ogg` files are ever loaded. This keeps the bundle small and works identically offline.
+
+| Method | Trigger | Waveform & Behaviour |
+|---|---|---|
+| `Sound.playClick()` | Any button tap | Sine wave, 450 Hz → 150 Hz exponential ramp, 80 ms |
+| `Sound.playError()` | Payment amount is insufficient | Triangle wave, 180 Hz → 140 Hz step, 250 ms |
+| `Sound.playSuccess()` | Sale completed (Step 4 reached) | Fanfare: C5 → E5 → G5 → C6, triangle waves, staggered |
+
+### playSuccess() — the victory fanfare
+
+The success sound plays a C major chord arpeggio (C5–E5–G5–C6) using four sequential triangle-wave oscillators. Each note is spaced 120 ms apart:
+
+```js
+playSuccess() {
+  try {
+    const ctx = getAudioContext();
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+    const duration = 0.12;
+
+    notes.forEach((freq, idx) => {
+      const startTime = ctx.currentTime + idx * duration;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, startTime);
+
+      gain.gain.setValueAtTime(0.3, startTime);
+      gain.gain.exponentialRampToValueAtTime(
+        0.01,
+        startTime + (idx === notes.length - 1 ? 0.4 : duration + 0.05)
+      );
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(startTime);
+      osc.stop(startTime + (idx === notes.length - 1 ? 0.4 : duration + 0.05));
+    });
+  } catch (e) {
+    // Fallback silent fail
+  }
+}
+```
+
+<Tip>
+  `AudioContext` is lazy-initialized — it is only created the first time a sound plays. This satisfies the browser autoplay policy that requires an `AudioContext` to be created (or resumed) during a user gesture. The `getAudioContext()` helper also resumes a suspended context automatically if the browser suspended it after a period of inactivity.
+</Tip>
+
+---
+
+## Browser Support
+
+| Feature | Supported Browsers |
+|---|---|
+| **Web Speech API** | Chrome for Android, Chrome desktop, Safari iOS 14.5+, Edge |
+| **Web Audio API** | All modern browsers (Chrome, Firefox, Safari, Edge) |
+
+<Info>
+  On iOS Safari, voice synthesis may silently fail until the user has interacted with the page at least once. Allipos triggers all speech from within tap event handlers, which satisfies this requirement. If you notice voice not firing on the very first tap after a fresh install, a second tap will always work.
+</Info>

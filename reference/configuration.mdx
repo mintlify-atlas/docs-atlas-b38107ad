@@ -1,0 +1,234 @@
+---
+title: "Configuration reference for Allipos"
+sidebarTitle: "Configuration"
+description: "All Allipos config files explained: Vite build settings, PWA manifest fields, Service Worker cache name, Vercel deployment rules, and catalog versioning."
+---
+
+Allipos has **no runtime environment variables**. All configuration lives in four static files committed directly to the repository:
+
+| File | Purpose |
+|---|---|
+| `vite.config.js` | Bundler settings — root, public directory, build output, dev server |
+| `public/manifest.json` | PWA identity — icons, colors, display mode, start URL |
+| `public/sw.js` | Service Worker — defines the cache name used for offline asset storage |
+| `src/js/store.js` | App logic — defines `CURRENT_CATALOG_VERSION` used for LocalStorage migration |
+
+---
+
+## vite.config.js
+
+Allipos uses [Vite 5](https://vitejs.dev/) as its build tool. The configuration is intentionally minimal — no plugins, no aliases, no environment variables.
+
+```js
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  root: '.',
+  publicDir: 'public',
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true
+  },
+  server: {
+    port: 3000,
+    host: true
+  }
+});
+```
+
+**Key options explained:**
+
+| Option | Value | Meaning |
+|---|---|---|
+| `root` | `'.'` | The project root is the repository root. `index.html` is resolved from here. |
+| `publicDir` | `'public'` | Files in `public/` are copied verbatim to `dist/` without processing. This is where `manifest.json`, `sw.js`, and app icons live. |
+| `build.outDir` | `'dist'` | Compiled production assets are written to `dist/`. Vercel reads from this directory (see `vercel.json`). |
+| `build.emptyOutDir` | `true` | Vite clears `dist/` before every production build, preventing stale files from accumulating. |
+| `server.port` | `3000` | The local development server starts on port 3000. |
+| `server.host` | `true` | Binds the dev server to `0.0.0.0`, making it accessible on your local network. Useful for testing on a real phone via the same Wi-Fi. |
+
+<Note>
+  There are no Vite plugins configured. Allipos deliberately avoids framework plugins (e.g., `@vitejs/plugin-vue`, `@vitejs/plugin-react`) because it is built with plain Vanilla JS.
+</Note>
+
+---
+
+## public/manifest.json
+
+The Web App Manifest tells the browser how to present Allipos when a user installs it as a PWA from the home screen. This file is served as-is from the `public/` directory.
+
+```json
+{
+  "name": "Allipos",
+  "short_name": "Allipos",
+  "description": "Allipos - Punto de Venta súper sencillo e intuitivo",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f9fa",
+  "theme_color": "#58cc02",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
+```
+
+**Field reference:**
+
+| Field | Value | Description |
+|---|---|---|
+| `name` | `"Allipos"` | Full app name displayed during installation and in the OS app list. |
+| `short_name` | `"Allipos"` | Short label shown under the icon on the home screen when space is limited. |
+| `description` | `"Allipos - Punto de Venta…"` | Human-readable description used by app stores and browser install prompts. |
+| `start_url` | `"/"` | The URL the app opens to when launched from the home screen. |
+| `display` | `"standalone"` | Hides the browser's address bar, navigation buttons, and UI chrome — the app looks and feels native. |
+| `background_color` | `"#f7f9fa"` | The background color shown on the splash screen while the app loads. Light off-white neutral. |
+| `theme_color` | `"#58cc02"` | Duolingo green. Applied to the Android status bar and browser tab bar when the app is open. |
+| `orientation` | `"portrait"` | Locks the app to portrait (vertical) orientation, appropriate for a mobile POS used with one hand. |
+| `icons[].src` | `/icon-192.png`, `/icon-512.png` | Two icon sizes required by Android and iOS for home screen placement and splash screens. |
+| `icons[].purpose` | `"any maskable"` | Declares the icon works in both standard display and as a maskable icon (safe-zone adaptive icon on Android). |
+
+---
+
+## Service Worker cache (public/sw.js)
+
+The Service Worker is the engine behind Allipos' 100% offline capability. The single most important configuration value is the **cache name constant** at the top of the file:
+
+```js
+const CACHE_NAME = 'allipos-v1';
+const ASSETS_TO_CACHE = [
+  '/',
+  '/index.html',
+  '/src/css/style.css',
+  '/src/js/app.js',
+  '/src/js/store.js',
+  '/src/js/audio.js',
+  '/src/js/ui/posView.js',
+  '/src/js/ui/adminView.js',
+  '/src/js/ui/summaryView.js',
+  '/manifest.json'
+];
+```
+
+The Service Worker uses a **stale-while-revalidate** strategy: it serves the cached version immediately for instant load, then fetches a fresh copy in the background and updates the cache. On the `activate` event, any cache whose name does **not** match `CACHE_NAME` is deleted — this is the cache-busting mechanism:
+
+```js
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME) {
+            return caches.delete(cache);
+          }
+        })
+      );
+    })
+  );
+  self.clients.claim();
+});
+```
+
+**Deploying a new version — how to bust the cache:**
+
+Whenever you make changes to any cached file (CSS, JS, HTML), you must rename `CACHE_NAME` in `public/sw.js` so that installed clients pick up the new assets on their next load. For example:
+
+```js
+// Before
+const CACHE_NAME = 'allipos-v1';
+
+// After a major update
+const CACHE_NAME = 'allipos-v2';
+```
+
+When the new Service Worker activates, it will delete the `allipos-v1` cache and build a fresh `allipos-v2` cache from the updated `ASSETS_TO_CACHE` list.
+
+<Tip>
+  You do **not** need to update `CACHE_NAME` for every small change during development — the dev server (`npm run dev`) bypasses the Service Worker. Only bump the cache name before deploying to production.
+</Tip>
+
+---
+
+## vercel.json
+
+Allipos is deployed on [Vercel](https://vercel.com/). The `vercel.json` file configures the build pipeline and ensures client-side routing works correctly.
+
+```json
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+
+**Key options explained:**
+
+| Key | Value | Description |
+|---|---|---|
+| `buildCommand` | `"npm run build"` | The command Vercel runs to compile the app. Equivalent to `vite build`, which outputs to `dist/`. |
+| `outputDirectory` | `"dist"` | Tells Vercel which directory contains the production-ready static files to serve. Must match `build.outDir` in `vite.config.js`. |
+| `framework` | `"vite"` | Hints to Vercel's infrastructure that this is a Vite project, enabling appropriate build caching and optimization. |
+| `rewrites` | `[{ "source": "/(.*)", "destination": "/index.html" }]` | **SPA fallback rule.** Any URL that does not match a static file is rewritten to `index.html`, so the app's JavaScript router handles navigation instead of Vercel returning a 404. This is essential for PWA tab navigation to work correctly after a hard refresh. |
+
+---
+
+## Catalog version (store.js)
+
+`CURRENT_CATALOG_VERSION` in `src/js/store.js` is a string constant that acts as a schema version for the product catalog stored in `LocalStorage`.
+
+```js
+const CURRENT_CATALOG_VERSION = '2026.10.06.allipos_v1';
+```
+
+The version string follows the pattern `YYYY.MM.DD.allipos_vN`. It is compared against the value stored in `localStorage['allipos_catalog_version']` every time `Store.init()` runs.
+
+**When to change it:**
+
+Increment `CURRENT_CATALOG_VERSION` whenever you modify the `INITIAL_PRODUCTS` array — to add new products, remove existing ones, update prices, or swap product images. On the next app load, `Store.init()` detects the mismatch and automatically overwrites the `allipos_products` key in every client's `LocalStorage` with the new `INITIAL_PRODUCTS` data:
+
+```js
+init() {
+  const existing = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
+  const savedVersion = localStorage.getItem(STORAGE_KEYS.CATALOG_VERSION);
+
+  if (!existing || existing.includes('data:image/svg+xml') || savedVersion !== CURRENT_CATALOG_VERSION) {
+    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
+    localStorage.setItem(STORAGE_KEYS.CATALOG_VERSION, CURRENT_CATALOG_VERSION);
+  }
+  // ...
+}
+```
+
+The migration also fires if `LocalStorage` is empty (first visit) or if the stored products still contain legacy SVG placeholder images from an older build.
+
+<Warning>
+  Changing `CURRENT_CATALOG_VERSION` **overwrites the entire `allipos_products` key** in `LocalStorage` with the new `INITIAL_PRODUCTS` array. Any products a user has added manually through the **📦 Productos** admin panel will be permanently lost. Review the `init()` logic in `src/js/store.js` before bumping the version, and consider whether a targeted migration (merging new items with existing user data) is more appropriate for your use case.
+</Warning>
+
+**Forcing a manual reset without a code deploy:**
+
+Users can also tap the **🔄 Recargar Catálogo Base** button in the **📦 Productos** tab. This calls `Store.resetToDefaultProducts()`, which writes `INITIAL_PRODUCTS` and the current version string to `LocalStorage` immediately — no version bump required.
+
+---
+
+## No environment variables
+
+<Info>
+  Allipos uses **no `.env` files** and requires **no API keys, tokens, or secrets** of any kind. All configuration is static, hardcoded, and committed directly to the repository. There is nothing to provision, rotate, or protect before deploying.
+</Info>
+
+This is by design: Allipos runs entirely in the browser using browser-native APIs (`LocalStorage`, `Web Audio API`, `Web Speech API`, `Service Worker`). It has no backend, no database connection, and no third-party service integrations.

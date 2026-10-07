@@ -1,0 +1,147 @@
+---
+title: "How the change calculator and breakdown work"
+sidebarTitle: "Change Calculator"
+description: "How Allipos calculates exact change and generates multiple realistic coin and bill breakdown alternatives using real Mexican currency denominations."
+---
+
+Allipos automatically calculates the exact change due and generates multiple ways to return it — using real denominations from the Mexican currency system. Children never need to perform mental arithmetic: the app shows them precisely which coins and bills to hand back, with photos and voice narration for each option.
+
+## Supported Denominations
+
+The full set of denominations is declared in `src/js/ui/posView.js` as the `DENOMINATIONS` array. Every denomination has a value, a type (`billete` or `moneda`), a human-readable label, and a reference to the real photo used in the UI.
+
+| Value | Type | Label |
+|---|---|---|
+| $100 | Billete | Billete $100 |
+| $50 | Billete | Billete $50 |
+| $20 | Billete | Billete $20 |
+| $10 | Moneda | Moneda $10 |
+| $5 | Moneda | Moneda $5 |
+| $2 | Moneda | Moneda $2 |
+| $1 | Moneda | Moneda $1 |
+
+---
+
+## The Change Algorithm
+
+The core function is `calculateAllChangeCombinations(changeAmount, maxOptions)`, defined in `src/js/ui/posView.js`.
+
+**Signature:**
+
+```js
+function calculateAllChangeCombinations(changeAmount, maxOptions = 6)
+```
+
+### How it works
+
+1. **Integer conversion** — The float `changeAmount` is first converted to a whole-peso integer (`Math.floor(Math.round(changeAmount * 100) / 100)`) to avoid floating-point rounding errors (e.g., `$14.99999…` becoming `$15`).
+
+2. **Greedy-first recursive search** — A depth-first `search()` function iterates over denominations from largest to smallest. For each denomination it tries every possible count from `max` down to `0`, recursively filling the remainder with smaller denominations. This naturally produces the greedy (fewest-pieces) result first.
+
+3. **Practical limits** — To prevent absurd results (e.g., 50× $1 coins for $25 change), small denominations are capped:
+   - `$1` and `$2` coins: maximum **10 per combination** when the total change is greater than $20.
+   - `$1` coins: maximum **5 per combination** when the total change is greater than $10.
+
+4. **Search cap** — The recursive search stops after collecting **80 raw results**, keeping execution time negligible on low-end phones.
+
+5. **Sorting and slicing** — Raw results are converted to `{ breakdown, totalPieces }` objects. The first result (greedy) is pinned at index 0. The remaining results are sorted ascending by `totalPieces`. The final array is sliced to `maxOptions` (default **6**).
+
+```js
+function calculateAllChangeCombinations(changeAmount, maxOptions = 6) {
+  if (changeAmount <= 0) return [];
+
+  const wholeAmount = Math.floor(Math.round(changeAmount * 100) / 100);
+  if (wholeAmount <= 0) return [];
+
+  const denoms = DENOMINATIONS.map(d => d.value); // [100, 50, 20, 10, 5, 2, 1]
+  const rawResults = [];
+
+  function search(idx, currentSum, counts) {
+    if (rawResults.length >= 80) return;
+    if (currentSum === wholeAmount) {
+      rawResults.push([...counts]);
+      return;
+    }
+    if (idx >= denoms.length) return;
+
+    const val = denoms[idx];
+    const max = Math.floor((wholeAmount - currentSum) / val);
+    for (let c = max; c >= 0; c--) {
+      // Practical limits to avoid absurd combos (e.g. 50× $1 coins)
+      if ((val === 1 || val === 2) && c > 10 && wholeAmount > 20) continue;
+      if (val === 1 && c > 5 && wholeAmount > 10) continue;
+      counts[idx] = c;
+      search(idx + 1, currentSum + c * val, counts);
+      counts[idx] = 0;
+      if (rawResults.length >= 80) break;
+    }
+  }
+
+  search(0, 0, new Array(denoms.length).fill(0));
+
+  if (rawResults.length === 0) return [];
+
+  const allCombos = rawResults.map(counts => {
+    const breakdown = [];
+    let totalPieces = 0;
+    for (let i = 0; i < denoms.length; i++) {
+      if (counts[i] > 0) {
+        breakdown.push({ ...DENOMINATIONS[i], count: counts[i] });
+        totalPieces += counts[i];
+      }
+    }
+    return { breakdown, totalPieces };
+  });
+
+  // Greedy optimal option stays first; rest sorted by fewest pieces
+  const greedy = allCombos[0];
+  const others = allCombos.slice(1).sort((a, b) => a.totalPieces - b.totalPieces);
+  const finalCombos = [greedy, ...others];
+
+  return finalCombos.slice(0, maxOptions).map(c => c.breakdown);
+}
+```
+
+---
+
+## Multiple Breakdown Options
+
+When `calculateAllChangeCombinations` returns more than one combination, a **🔄 Ver otra forma de dar cambio** button appears in Step 4. A counter badge shows the current position, e.g. `1/3`.
+
+Each tap advances `currentComboIndex` cyclically:
+
+```js
+btnCycle?.addEventListener('click', () => {
+  Sound.playClick();
+  currentComboIndex = (currentComboIndex + 1) % combinations.length;
+  render();
+  const nextBreakdown = combinations[currentComboIndex] || combinations[0] || [];
+  Sound.speakChange(change, nextBreakdown);
+});
+```
+
+The screen re-renders with the new visual cards and immediately re-narrates the new combination via the voice assistant.
+
+**Example — change of $15:**
+
+| Option | Breakdown | Pieces |
+|---|---|---|
+| 1 (greedy) | 1× Moneda $10 + 1× Moneda $5 | 2 |
+| 2 | 3× Moneda $5 | 3 |
+| 3 | 1× Moneda $10 + 2× Moneda $2 + 1× Moneda $1 | 4 |
+
+<Tip>
+  If a denomination is not available in the cash drawer, tap **🔄** to find an alternative breakdown that avoids that denomination. The algorithm already pre-computed the alternatives — no recalculation needed.
+</Tip>
+
+---
+
+## Visual Change Display
+
+Each denomination in the active breakdown is shown as a mini-card containing:
+
+- **A real photo** of the coin or bill, sourced from `/src/assets/diner/` (`diner1.png` through `diner100.jpg`).
+- **A count badge** in large bold green text (e.g., `2x`).
+- **A label** below the photo (e.g., `Moneda $2`).
+
+Cards are rendered as a flex row and wrap naturally on narrow screens, so even a combination of five different denominations remains readable on a small phone without scrolling.
