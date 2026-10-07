@@ -1,5 +1,5 @@
 ---
-title: "Install Allipos as a PWA on Android and iOS"
+title: "Install Allipos as a PWA on Android and iOS Devices"
 sidebarTitle: "PWA Install"
 description: "Add Allipos to your phone's home screen for full-screen standalone use — no app store needed, fully offline-capable once installed via Chrome or Safari."
 ---
@@ -113,9 +113,8 @@ The manifest at `public/manifest.json` declares how the browser should present A
 
 The Service Worker (`public/sw.js`) uses a **stale-while-revalidate** strategy: cached assets are served immediately for instant load times, while a background fetch silently updates the cache. On first install the following assets are pre-cached:
 
-- `index.html`, all JS modules (`app.js`, `store.js`, `audio.js`, `posView.js`, `adminView.js`, `summaryView.js`)
+- `index.html` and all JS modules (`app.js`, `store.js`, `audio.js`, `posView.js`, `adminView.js`, `summaryView.js`)
 - `style.css` and `manifest.json`
-- All coin and banknote photos, and product inventory images
 
 This means Allipos works completely offline after the first visit — ideal for school fairs with no Wi-Fi.
 
